@@ -49,3 +49,6 @@ class SchemeController {
     }
   }
 }
+
+
+export default SchemeController;

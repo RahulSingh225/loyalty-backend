@@ -1,6 +1,8 @@
-import { redemptionRepository, userRepository } from "../repository";
+import { earningRepository, redemptionRepository, schemeRepository, userRepository } from "../repository";
 import AuthController from "./auth.controller";
 import EarningController from "./earning.controller";
+import RedemptionController from "./redemption.controller";
+import SchemeController from "./scheme.controller";
 import UserController from "./user.controller";
 
 export const userController = new UserController(userRepository);

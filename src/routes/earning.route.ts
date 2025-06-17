@@ -7,7 +7,7 @@ const earningRoutes = [
   {
     method: "post",
     path: "/earnings",
-    handler: earningController.createEarning,
+    handler: earningController.initiateEarning,
   },
   { method: "get", path: "/earnings", handler: earningController.getEarnings },
   {

@@ -55,3 +55,5 @@ class RedemptionController {
     }
   }
 }
+
+export default RedemptionController;
