@@ -989,6 +989,134 @@
       "policies": {},
       "isRLSEnabled": false
     },
+    "public.navision_retail_master": {
+      "name": "navision_retail_master",
+      "schema": "",
+      "columns": {
+        "No": {
+          "name": "No",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address": {
+          "name": "Address",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address_2": {
+          "name": "Address_2",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "City": {
+          "name": "City",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Post_Code": {
+          "name": "Post_Code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "State_Code": {
+          "name": "State_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Country_Region_Code": {
+          "name": "Country_Region_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_No": {
+          "name": "Whatsapp_No",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_Mobile_Number": {
+          "name": "Whatsapp_Mobile_Number",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "P_A_N_No": {
+          "name": "P_A_N_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "GST_Registration_No": {
+          "name": "GST_Registration_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Beat_Name": {
+          "name": "Beat_Name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Sales_Agent_Customer": {
+          "name": "Sales_Agent_Customer",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Point_Claim_Customer_Type": {
+          "name": "Point_Claim_Customer_Type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "OGS": {
+          "name": "OGS",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Gujarat": {
+          "name": "Gujarat",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ETag": {
+          "name": "ETag",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {},
+      "policies": {},
+      "isRLSEnabled": false
+    },
     "public.transaction": {
       "name": "transaction",
       "schema": "",
@@ -1059,6 +1187,250 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {},
+      "policies": {},
+      "isRLSEnabled": false
+    },
+    "public.navision_customer_master": {
+      "name": "navision_customer_master",
+      "schema": "",
+      "columns": {
+        "No": {
+          "name": "No",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address": {
+          "name": "Address",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address_2": {
+          "name": "Address_2",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "City": {
+          "name": "City",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Post_Code": {
+          "name": "Post_Code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "State_Code": {
+          "name": "State_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Country_Region_Code": {
+          "name": "Country_Region_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_No_1": {
+          "name": "Whatsapp_No_1",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_No_2": {
+          "name": "Whatsapp_No_2",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "P_A_N_No": {
+          "name": "P_A_N_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "GST_Registration_No": {
+          "name": "GST_Registration_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Sales_Agent": {
+          "name": "Sales_Agent",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Sales_Agent_Name": {
+          "name": "Sales_Agent_Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Salesperson_Code": {
+          "name": "Salesperson_Code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ETag": {
+          "name": "ETag",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {},
+      "policies": {},
+      "isRLSEnabled": false
+    },
+    "public.navision_vendor_master": {
+      "name": "navision_vendor_master",
+      "schema": "",
+      "columns": {
+        "No": {
+          "name": "No",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address": {
+          "name": "Address",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Address_2": {
+          "name": "Address_2",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "City": {
+          "name": "City",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Post_Code": {
+          "name": "Post_Code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "State_Code": {
+          "name": "State_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Country_Region_Code": {
+          "name": "Country_Region_Code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_No": {
+          "name": "Whatsapp_No",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Whatsapp_Mobile_Number": {
+          "name": "Whatsapp_Mobile_Number",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "P_A_N_No": {
+          "name": "P_A_N_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "GST_Registration_No": {
+          "name": "GST_Registration_No",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Beat_Name": {
+          "name": "Beat_Name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Sales_Agent_Customer": {
+          "name": "Sales_Agent_Customer",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Point_Claim_Customer_Type": {
+          "name": "Point_Claim_Customer_Type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "OGS": {
+          "name": "OGS",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Gujarat": {
+          "name": "Gujarat",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ETag": {
+          "name": "ETag",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {},

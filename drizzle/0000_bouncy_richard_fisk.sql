@@ -150,6 +150,28 @@ CREATE TABLE "redemption_request" (
 	"updated_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "navision_retail_master" (
+	"No" varchar(20) PRIMARY KEY NOT NULL,
+	"Name" varchar(100),
+	"Address" varchar(100),
+	"Address_2" varchar(100),
+	"City" varchar(50),
+	"Post_Code" varchar(20),
+	"State_Code" varchar(10),
+	"Country_Region_Code" varchar(10),
+	"Whatsapp_No" varchar(15),
+	"Whatsapp_Mobile_Number" varchar(15),
+	"P_A_N_No" varchar(20),
+	"GST_Registration_No" varchar(20),
+	"Beat_Name" varchar(50),
+	"Sales_Agent_Customer" varchar(20),
+	"Point_Claim_Customer_Type" varchar(50),
+	"OGS" boolean,
+	"Gujarat" boolean,
+	"ETag" varchar(100),
+	"CreatedAt" timestamp DEFAULT CURRENT_TIMESTAMP
+);
+--> statement-breakpoint
 CREATE TABLE "transaction" (
 	"transaction_id" serial NOT NULL,
 	"user_id" integer NOT NULL,
@@ -159,6 +181,48 @@ CREATE TABLE "transaction" (
 	"reference_id" integer,
 	"reference_table" varchar(50),
 	"description" text
+);
+--> statement-breakpoint
+CREATE TABLE "navision_customer_master" (
+	"No" varchar(20) PRIMARY KEY NOT NULL,
+	"Name" varchar(100),
+	"Address" varchar(100),
+	"Address_2" varchar(100),
+	"City" varchar(50),
+	"Post_Code" varchar(20),
+	"State_Code" varchar(10),
+	"Country_Region_Code" varchar(10),
+	"Whatsapp_No_1" varchar(15),
+	"Whatsapp_No_2" varchar(15),
+	"P_A_N_No" varchar(20),
+	"GST_Registration_No" varchar(20),
+	"Sales_Agent" varchar(20),
+	"Sales_Agent_Name" varchar(100),
+	"Salesperson_Code" varchar(20),
+	"ETag" varchar(100),
+	"CreatedAt" timestamp DEFAULT CURRENT_TIMESTAMP
+);
+--> statement-breakpoint
+CREATE TABLE "navision_vendor_master" (
+	"No" varchar(20) PRIMARY KEY NOT NULL,
+	"Name" varchar(100),
+	"Address" varchar(100),
+	"Address_2" varchar(100),
+	"City" varchar(50),
+	"Post_Code" varchar(20),
+	"State_Code" varchar(10),
+	"Country_Region_Code" varchar(10),
+	"Whatsapp_No" varchar(15),
+	"Whatsapp_Mobile_Number" varchar(15),
+	"P_A_N_No" varchar(20),
+	"GST_Registration_No" varchar(20),
+	"Beat_Name" varchar(50),
+	"Sales_Agent_Customer" varchar(20),
+	"Point_Claim_Customer_Type" varchar(50),
+	"OGS" boolean,
+	"Gujarat" boolean,
+	"ETag" varchar(100),
+	"CreatedAt" timestamp DEFAULT CURRENT_TIMESTAMP
 );
 --> statement-breakpoint
 CREATE TABLE "salesperson" (
