@@ -50,6 +50,7 @@ class UserRepository {
       'SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
       [
         userData.username, userData.mobile_number, userData.secondary_mobile_number, userData.hashedPassword, userData.shop_name, userData.shop_address,
+        userData.home_address,userData.work_address, userData.pan,userData.aadhaar, userData.gstin,
         userData.pin_code, userData.city, userData.state, 'retailer', userData.fcm_token, JSON.stringify(userData.device_details)
       ]
     );
