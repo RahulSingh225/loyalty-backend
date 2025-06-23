@@ -1,9 +1,19 @@
-import { pool } from "../services/db.service";
+import { eq } from "drizzle-orm";
+import { userMaster } from "../db/schema";
+import { db } from "../services/db.service";
 
 class EarningRepository {
   async initiateEarning(payload: any) {
-    const result = await pool.query("SELECT initiateEarning");
-    return result;
+    const result = await db.select().from(userMaster).where(eq(userMaster.userId, payload.userId));
+    if (result[0].balancePoints < payload.amount) {
+      throw new Error("Insufficient balance for earning");
+    }
+    const earningResult = await db.insert(earnings).values({
+      userId: Number(payload.userId),
+      amount: payload.amount,
+      status: "pending",
+    }).returning();
+    return earningResult[0];
   }
 
   async getEarnings(userId: string) {

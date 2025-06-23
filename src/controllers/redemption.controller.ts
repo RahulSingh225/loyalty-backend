@@ -1,9 +1,10 @@
 import { redemptionRepository } from "../repository";
+import { Request, Response } from "express";
 
 class RedemptionController {
   async createRedemption(req: Request, res: Response) {
     try {
-      const result = await redemptionRepository.createRedemption(req.body);
+      const result = await redemptionRepository.initiateRedemption(req.body);
       return res.status(201).json(result);
     } catch (error) {
       return res.status(500).json(error.message);
@@ -49,6 +50,14 @@ class RedemptionController {
       const result = await redemptionRepository.getRedemptionDetails(
         redemptionId
       );
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+  }
+  async showRewards(req: Request, res: Response) {
+    try {
+      const result = await redemptionRepository.showRewards();
       return res.status(200).json(result);
     } catch (error) {
       return res.status(500).json(error.message);

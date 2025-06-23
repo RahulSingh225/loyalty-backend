@@ -1,5 +1,7 @@
-import { pool } from "../services/db.service";
+import { eq, sql } from "drizzle-orm";
+import { db } from "../services/db.service";
 import logger from '../services/logger.service'
+import { userMaster } from "../db/schema";
 
 
 /**
@@ -18,7 +20,7 @@ import logger from '../services/logger.service'
  * - updateUser: Updates user information in the in-memory map.
  * - deleteUser: Deletes a user from the in-memory map.
  * 
- * Note: Database operations rely on PostgreSQL stored procedures and require a valid `pool` and `logger` instance.
+ * Note: Database operations rely on PostgreSQL stored procedures and require a valid `db` and `logger` instance.
  */
 class UserRepository {
   private users: Map<string, any> = new Map();
@@ -46,16 +48,77 @@ class UserRepository {
    * @throws Will throw an error if the database operation fails.
    */
   async onBoardRetailer(userData: any): Promise<any> {
-     const result = await pool.query(
-      'SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-      [
-        userData.username, userData.mobile_number, userData.secondary_mobile_number, userData.hashedPassword, userData.shop_name, userData.shop_address,
-        userData.home_address,userData.work_address, userData.pan,userData.aadhaar, userData.gstin,
-        userData.pin_code, userData.city, userData.state, 'retailer', userData.fcm_token, JSON.stringify(userData.device_details)
-      ]
+     const result = await db.execute(
+      sql`onboard_retailer(
+            ${userData.username},
+            ${userData.mobile_number},
+            ${userData.secondary_mobile_number},
+            ${userData.hashedPassword},
+            ${userData.shop_name},
+            ${userData.shop_address},
+            ${userData.home_address},
+            ${userData.work_address},
+            ${userData.pan},
+            ${userData.aadhaar},
+            ${userData.gstin},
+            ${userData.pin_code},
+            ${userData.city},
+            ${userData.state},
+            ${'retailer'},
+            ${userData.fcm_token},
+            ${JSON.stringify(userData.device_details)}
+          )`
     );
-    logger.info('Retailer onboarded', { user_id: result.rows[0].onboard_retailer.user_id });
-    return result.rows[0].onboard_retailer;
+    logger.info('Retailer onboarded', { user_id: result[0].onboard_retailer.user_id });
+    return result[0].onboard_retailer;
+  }
+
+
+  /**
+   * Onboards a new distributor by inserting their details into the database.
+   *
+   * Calls the `onboard_distributor` stored procedure with the provided user data.
+   * Returns the onboarded distributor's information.
+   *
+   * @param userData - An object containing the distributor's details, including:
+   *   - username: string
+   *   - mobile_number: string
+   *   - secondary_mobile_number: string
+   *   - hashedPassword: string
+   *   - distributor_name: string
+   *   - contact_person: string
+   *   - phone_number: string
+   *   - email: string
+   *   - address: string
+   *   - city: string
+   *   - state: string
+   *   - zip_code: string
+   *   - fcm_token: string
+   *   - device_details: object
+   * @returns A promise that resolves to the onboarded distributor's information.
+   */
+  async onboardDistributor(userData: any): Promise<any> {
+    const result = await db.execute(
+      sql`onboard_distributor(
+            ${userData.username},
+            ${userData.mobile_number},
+            ${userData.secondary_mobile_number},
+            ${userData.hashedPassword},
+            ${userData.distributor_name},
+            ${userData.contact_person},
+            ${userData.phone_number},
+            ${userData.email},
+            ${userData.address},
+            ${userData.city},
+            ${userData.state},
+            ${userData.zip_code},
+            ${'distributor'},
+            ${userData.fcm_token},
+            ${JSON.stringify(userData.device_details)}
+          )`
+    );
+    logger.info('Distributor onboarded', { user_id: result[0].onboard_distributor.user_id });
+    return result[0].onboard_distributor;
   }
 
 
@@ -145,42 +208,22 @@ class UserRepository {
    *                 distributor_name:
    *                   type: string
    */
-  async onboardDistributor(userData: any): Promise<any> {
-    const result = await pool.query(
-      'SELECT onboard_distributor($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)',
-      [
-        userData.username,
-        userData.mobile_number,
-        userData.secondary_mobile_number,
-        userData.hashedPassword,
-        userData.distributor_name,
-        userData.contact_person,
-        userData.phone_number,
-        userData.email,
-        userData.address,
-        userData.city,
-        userData.state,
-        userData.zip_code,
-        'distributor',
-        userData.fcm_token,
-        JSON.stringify(userData.device_details)
-      ]
-    );
-    logger.info('Distributor onboarded', { user_id: result.rows[0].onboard_distributor.user_id });
-    return result.rows[0].onboard_distributor;
-  }
+  
   async loginUser(payload:any): Promise<any> {
-const result = await pool.query(
-      'SELECT login_user($1, $2, $3, $4)',
-      [payload.mobile_number, 'otp_verified', payload.fcm_token, JSON.stringify(payload.device_details)]
-    );
-    const userId = result.rows[0].login_user.user_id.toString();
-    return result.rows[0].login_user;
+const result = await db.execute(
+      sql`login_user(
+            ${payload.mobile_number},
+            ${'otp_verified'},
+            ${payload.fcm_token},
+            ${JSON.stringify(payload.device_details)}
+          )`)
+const user = result[0].login_user;
+    return user;
   }
 
   async getUserById(id: string): Promise<any | null> {
 
-    const result = await pool.query('SELECT get_user_details($1)', [parseInt(id)]);
+    const result = await db.execute(sql`get_user_details(${parseInt(id)})`);
     return result.rows.length > 0 ? result.rows[0].get_user_details : null;
   }
 
@@ -198,6 +241,10 @@ const result = await pool.query(
       throw new Error('User not found');
     }
     this.users.delete(id);
+  }
+  async listUsers(param: any): Promise<any[]> {
+    const result = await db.select().from(userMaster).where(eq(userMaster.userType,param.userType))
+    return result;
   }
 }
 export default UserRepository;

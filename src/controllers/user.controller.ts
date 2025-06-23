@@ -1,3 +1,4 @@
+import { InferColumnsDataTypes } from "drizzle-orm";
 import UserRepository from "../repository/user.repository";
 import { Request, Response } from "express";
 
@@ -113,6 +114,15 @@ class UserController {
       }
     } catch (error) {
       res.status(400).json({ message: "Bad request", error });
+    }
+  }
+  async list(req: Request, res: Response) {
+    try {
+      const users = await this.userService.listUsers(req.query);
+      return res.status(200).json(users);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "Server error", error });
     }
   }
 }
