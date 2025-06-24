@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from "express";
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
 import logger from "./services/logger.service";
 import { routers } from "./routes";
+import { DatabaseService } from "./services/db.service";
 //import FirebaseService from './services/firebase.service';
 
 
@@ -52,6 +53,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   //logger.info(`Request: ${req.method} ${req.url}`, { body: req.body });
   next();
 });
+
+  
+
+
+    
+
+
 
 // Start server
 const port = parseInt(process.env.PORT) || 3000;

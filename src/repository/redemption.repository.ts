@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { gifts, pointAllocationLog, redemptionRequest, userMaster } from "../db/schema";
-import { db } from "../services/db.service";
+import { db } from "../server";
 
 class RedemptionRepository {
   async initiateRedemption(payload: any) {

@@ -105,6 +105,7 @@ class AuthController{
             const user = await this.userService.loginUser(payload);
             return res.status(200).json(user);
         } catch (error) {
+          console.error('Login error:', error);
             res.status(400).json({ message: 'Bad request', error });
         }
     }

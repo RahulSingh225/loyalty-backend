@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { db } from "../services/db.service";
+import { db } from "../server";
 import logger from '../services/logger.service'
 import { userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
