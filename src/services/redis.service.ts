@@ -41,24 +41,24 @@ export class RedisClient {
 
   async getValue(userId: number): Promise<string | null> {
     try {
-      const refreshTokenValue: string | null = await this.redisClient.get(
+      const refreshTokenValue:any = await this.redisClient.get(
         `${userId}`
       );
       return refreshTokenValue;
     } catch (error) {
       console.log(error);
-      return null;
+      return '';
     }
   }
   async getStringValue(userId: string): Promise<string | null> {
     try {
-      const refreshTokenValue: string | null = await this.redisClient.get(
+      const refreshTokenValue: any  = await this.redisClient.get(
         `${userId}`
       );
       return refreshTokenValue;
     } catch (error) {
       console.log(error);
-      return null;
+      return '';
     }
   }
 

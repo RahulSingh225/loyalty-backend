@@ -1,4 +1,5 @@
 import Router from "express";
+import { redemptionController } from "../controllers";
 
 const redemptionRouter = Router();
 
@@ -18,11 +19,7 @@ const redemptionRoutes = [
     path: "/redemptions/:id",
     handler: redemptionController.updateRedemption,
   },
-  {
-    method: "delete",
-    path: "/redemptions/:id",
-    handler: redemptionController.deleteRedemption,
-  },
+ 
   {
     method: "get",
     path: "/redemptions/:id",

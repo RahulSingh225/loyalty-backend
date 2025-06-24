@@ -8,7 +8,7 @@ class UserController {
   async getUserById(req: Request, res: Response) {
     try {
       // Extract authenticated user from JWT (set by middleware)
-      const authUser = req.user as { id: string; user_type: string };
+      const authUser = req?.user as { id: string; user_type: string };
       if (!authUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }

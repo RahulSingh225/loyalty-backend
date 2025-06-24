@@ -1,35 +1,136 @@
-import jwt from "jsonwebtoken";
-import { NextFunction, Request, Response } from "express";
-import User from "../types/user";
+import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
+import { NextFunction, Request, Response } from 'express';
+import  User  from '../types/user'; // Adjusted import to use named export
+import {
+  ACCESSS_TOKEN_EXPIRY,
+  ACCESSS_TOKEN_SECRET,
+  JWT_SECRET,
+  REFRESH_TOKEN_EXPIRY,
+  REFRESH_TOKEN_SECRET,
+  TEMP_TOKEN_EXPIRATION,
+} from '../configs/config';
 
-// declare module 'express' {
-//   interface Request {
-//     user: any
-//   }
-// }
+// Define interface for JwtPayload to ensure type safety
+interface AuthJwtPayload extends JwtPayload {
+  accessToken: string;
+  refreshToken: string;
+}
 
-export class AuthMiddleware {
-  verifyJWT(req, res: Response, next: NextFunction) {
-    try {
-      console.log(req.headers);
-      const token = req.header("Authorization")?.replace("Bearer ", "");
-      console.log(token);
-      if (!token) {
-        throw new Error("Unauthorized request");
-      }
-      const user = jwt.verify(
-        token,
-        process.env.ACCESSS_TOKEN_SECRET as string
-      ) as User;
-      if (!user || user.userId === null) {
-        throw new Error("User data is incomplete or missing");
-      }
-      req.user = user as User;
-      next();
-    } catch (error: any) {
-      return res.status(401).json(error.message || "Invalid access token");
+// Define interface for MobileTokenPayload
+
+
+
+
+// Extend Express Request interface to include user property
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any
     }
   }
+}
+
+export class AuthMiddleware {
+  async mobileToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        throw new Error('Unauthorized request');
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) ;
+      req.user = decoded;
+
+      if (!decoded) {
+        throw new Error('Invalid mobile token');
+      }
+
+      // Commented-out code retained as per original
+      // let payload = new UserSearch({
+      //   mobile: decoded?.mobile,
+      //   userCode: "",
+      //   userId: 0,
+      //   email: decoded?.email,
+      //   country: "",
+      //   countryCode: ""
+      // });
+
+      // let otpData = await userRepository.getRecentOtp(payload, "recent");
+      // if (otpData?.otpTable?.otp != decoded?.otp) {
+      //   this.customError.responseMessage = "Token expired, Please re-intiate";
+      //   throw this.customError;
+      // } // not required
+      // req.user = payload
+
+      next();
+    } catch (error: any) {
+      throw new Error(error.message || 'Invalid mobile token');
+    }
+  }
+
+  async verifyJWT(req: Request, res: Response, next: NextFunction) {
+    try {
+      console.log(req.headers);
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      console.log(token);
+      if (!token) {
+        throw new Error('Unauthorized request');
+      }
+
+      const user:any = jwt.verify(token, ACCESSS_TOKEN_SECRET as string) ;
+      if (!user || user?.userId === null) {
+        throw new Error('User data is incomplete or missing');
+      }
+
+      req.user = user;
+      next();
+    } catch (error: any) {
+      return res.status(401).json({ message: error.message || 'Invalid access token' });
+    }
+  }
+
+  generateMobileToken = (payload: any): string => {
+    return jwt.sign(
+      {
+        mobile: payload.mobile,
+        country: payload.country,
+        countryCode: payload.countryCode,
+      },
+      JWT_SECRET,
+      {
+        expiresIn: TEMP_TOKEN_EXPIRATION,
+      }
+    );
+  };
+
+  generateUserToken = (user: any): AuthJwtPayload => {
+    const loginTokens: AuthJwtPayload = {
+      accessToken: jwt.sign(
+        {
+          userId: user.userId,
+          userType: user.userType,
+          mobile: user.mobile,
+        },
+        ACCESSS_TOKEN_SECRET as string, // Use ACCESS_TOKEN_SECRET for accessToken
+        {
+          expiresIn: ACCESSS_TOKEN_EXPIRY,
+        } as SignOptions
+      ),
+      refreshToken: jwt.sign(
+        {
+          userId: user.userId,
+          userCode: user.userCode,
+          mobile: user.mobile,
+          email: user.email,
+        },
+        REFRESH_TOKEN_SECRET as string,
+        {
+          expiresIn: REFRESH_TOKEN_EXPIRY,
+        } as SignOptions
+      ),
+    };
+    return loginTokens;
+  };
 }
 
 export const authMiddleware: AuthMiddleware = new AuthMiddleware();

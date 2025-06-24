@@ -8,12 +8,21 @@ class RedemptionRepository {
     if(result[0].balance < payload.amount) {
       throw new Error("Insufficient balance for redemption");
     }
-    const redemptionResult = await db.insert(redemptionRequest).values({
-      userId: Number(payload.userId),
-      rewardId: payload.giftId,
-      pointsValue: payload.amount,
-      status: "pending",
-    }).returning();
+   // Generate a unique redemptionId (e.g., UUID or custom logic)
+      const redemptionId = `RED-${Date.now()}-${payload.userId}`;
+
+      // Use $inferInsert type directly from redemptionRequest
+      const values: typeof redemptionRequest.$inferInsert = {
+        redemptionId,
+        userId: Number(payload.userId),
+        rewardId: payload.giftId,
+        pointsValue: payload.amount.toFixed(2), // Convert to string with 2 decimal places to match numeric(10,2)
+        status: 'pending',
+        method: 'default', // Placeholder; adjust based on requirements
+        pointsRedeemed: payload.amount, // Assuming pointsRedeemed equals amount
+        createdAt: new Date().toISOString(), // Set current timestamp
+      };
+    const redemptionResult = await db.insert(redemptionRequest).values(values).returning();
     await db.execute(sql`update_points(${payload.userId}, ${payload.amount},'consume') `)
 
     return redemptionResult[0];
@@ -25,7 +34,7 @@ class RedemptionRepository {
   }
 
   async calculateRedemptions(userId: string) {
-    const result = await db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId))).sum("amount");
+    const result = await db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)))
     return result;
   }
 
@@ -36,6 +45,18 @@ class RedemptionRepository {
     const result = await db.select().from(gifts);
     return result;
   }
+
+async updateRedemption(redemptionId: string, payload: any) {
+return null
 }
+
+async getRedemptionDetails(redemptionId: string) {
+
+return null
+}
+
+
+}
+
 
 export default RedemptionRepository;

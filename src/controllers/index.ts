@@ -7,8 +7,8 @@ import UserController from "./user.controller";
 
 export const userController = new UserController(userRepository);
 export const authController = new AuthController(userRepository);
-export const earningController = new EarningController(earningRepository);
+export const earningController = new EarningController();
 export const redemptionController = new RedemptionController(
-  redemptionRepository
+  
 );
-export const schemeController = new SchemeController(schemeRepository);
+export const schemeController = new SchemeController();

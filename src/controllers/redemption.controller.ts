@@ -11,7 +11,7 @@ class RedemptionController {
     }
   }
 
-  async getRedemptions(req: Request, res: Response) {
+  async getRedemptions(req:any, res: Response) {
     try {
       const userId = req.user.userId;
       const result = await redemptionRepository.getRedemptions(userId);
@@ -34,15 +34,15 @@ class RedemptionController {
     }
   }
 
-  async deleteRedemption(req: Request, res: Response) {
-    try {
-      const redemptionId = req.params.id;
-      const result = await redemptionRepository.deleteRedemption(redemptionId);
-      return res.status(200).json(result);
-    } catch (error) {
-      return res.status(500).json(error.message);
-    }
-  }
+  // async deleteRedemption(req: Request, res: Response) {
+  //   try {
+  //     const redemptionId = req.params.id;
+  //     const result = await redemptionRepository.deleteRedemption(redemptionId);
+  //     return res.status(200).json(result);
+  //   } catch (error) {
+  //     return res.status(500).json(error.message);
+  //   }
+  // }
 
   async getRedemptionDetails(req: Request, res: Response) {
     try {

@@ -2,6 +2,8 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "../services/db.service";
 import logger from '../services/logger.service'
 import { userMaster } from "../db/schema";
+import { RedisClient } from "../services/redis.service";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 
 /**
@@ -24,6 +26,7 @@ import { userMaster } from "../db/schema";
  */
 class UserRepository {
   private users: Map<string, any> = new Map();
+  private redisClient:RedisClient = new RedisClient()
 
   /**
    * Onboards a new retailer user by inserting their details into the database.
@@ -98,6 +101,9 @@ class UserRepository {
    * @returns A promise that resolves to the onboarded distributor's information.
    */
   async onboardDistributor(userData: any): Promise<any> {
+
+
+
     const result = await db.execute(
       sql`onboard_distributor(
             ${userData.username},
@@ -218,6 +224,13 @@ const result = await db.execute(
             ${JSON.stringify(payload.device_details)}
           )`)
 const user = result[0].login_user;
+    if (!user) {
+      throw new Error('User not found or invalid credentials');
+    }
+    user.tokens = authMiddleware.generateUserToken(user)
+    if(this.redisClient.isLive()){
+      await this.redisClient.setKey(user.userId, user.tokens.refreshToken); // Store user in Redis for 1 hour
+    }
     return user;
   }
 

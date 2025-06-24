@@ -6,8 +6,7 @@ import dotenv from "dotenv";
 import logger from "./services/logger.service";
 import { routers } from "./routes";
 //import FirebaseService from './services/firebase.service';
-const swaggerJSDoc = require("swagger-jsdoc");
-const swaggerUi = require("swagger-ui-express");
+
 
 // Load environment variables
 dotenv.config();
@@ -42,6 +41,12 @@ routers.forEach((router) => {
   app.use(router.path, router.router);
 });
 
+app.get("/",(req:Request,res,Response)=>{
+
+    res.send("Hellooo");
+
+})
+
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   //logger.info(`Request: ${req.method} ${req.url}`, { body: req.body });
@@ -49,7 +54,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-const port = parseInt(env.PORT) || 3000;
+const port = parseInt(process.env.PORT) || 3000;
 app.listen(port, () => {
   logger.info(`Server running on port ${port}`);
 });
