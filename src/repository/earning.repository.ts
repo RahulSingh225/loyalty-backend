@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { userMaster } from "../db/schema";
-import {db} from "../server"
 
 class EarningRepository {
   // async initiateEarning(payload: any) {

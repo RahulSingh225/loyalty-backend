@@ -1,16 +1,19 @@
-import { DatabaseService } from "../services/db.service";
 
+import {  db } from "../services/db.service";
 
-class BaseRepository<T> {
-  private items: T[] = [];
-    protected dbService;
+export default abstract class BaseRepository {
 
+  protected db
   constructor() {
-
-  
-      this.dbService = new DatabaseService(process.env.DATABASE_URL || '');
-     
+    // Initialize the database connection from the DatabaseService
+    this.db = db
+    
   }
+
+
+
+  // You can add common methods for all repositories here, if needed.
+  // For example, a method to handle transactions or logging.
 
  
 }

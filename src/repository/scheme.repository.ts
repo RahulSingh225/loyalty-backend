@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm";
 import { schemes } from "../db/schema";
-import { db } from "../services/db.service";
+import BaseRepository from "./base.repository";
 
-class SchemeRepository {
+class SchemeRepository extends BaseRepository {
   // async createScheme(payload: any) {
   //   const result = await db.query("SELECT createScheme");
   //   return result;
   // }
 
   async getSchemes(role_id: string) {
-    const result = await db.select().from(schemes).where(eq(schemes.applicableRoles, Number(role_id)));
+    const result = await this.db.select().from(schemes).where(eq(schemes.applicableRoles, Number(role_id)));
     return result;
   }
 

@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { gifts, pointAllocationLog, redemptionRequest, userMaster } from "../db/schema";
-import { db } from "../server";
+import BaseRepository from "./base.repository";
 
-class RedemptionRepository {
+class RedemptionRepository extends BaseRepository {
   async initiateRedemption(payload: any) {
-    const result = await db.select({balance:userMaster.balancePoints}).from(userMaster).where(eq(userMaster.userId, payload.userId));
+    const result = await this.db.select({balance:userMaster.balancePoints}).from(userMaster).where(eq(userMaster.userId, payload.userId));
     if(result[0].balance < payload.amount) {
       throw new Error("Insufficient balance for redemption");
     }
@@ -22,19 +22,19 @@ class RedemptionRepository {
         pointsRedeemed: payload.amount, // Assuming pointsRedeemed equals amount
         createdAt: new Date().toISOString(), // Set current timestamp
       };
-    const redemptionResult = await db.insert(redemptionRequest).values(values).returning();
-    await db.execute(sql`update_points(${payload.userId}, ${payload.amount},'consume') `)
+    const redemptionResult = await this.db.insert(redemptionRequest).values(values).returning();
+    await this.db.execute(sql`update_points(${payload.userId}, ${payload.amount},'consume') `)
 
     return redemptionResult[0];
   }
 
   async getRedemptions(userId: string) {
-    const result = await db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)));
+    const result = await this.db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)));
     return result;
   }
 
   async calculateRedemptions(userId: string) {
-    const result = await db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)))
+    const result = await this.db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)))
     return result;
   }
 
@@ -42,7 +42,7 @@ class RedemptionRepository {
 
 
   async showRewards() {
-    const result = await db.select().from(gifts);
+    const result = await this.db.select().from(gifts);
     return result;
   }
 

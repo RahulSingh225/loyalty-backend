@@ -5,7 +5,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import logger from "./services/logger.service";
 import { routers } from "./routes";
-import { DatabaseService } from "./services/db.service";
+import App from "./app";
+import { drizzle } from "drizzle-orm/node-postgres";
+
 //import FirebaseService from './services/firebase.service';
 
 
@@ -25,6 +27,9 @@ interface EnvConfig {
   PORT: string;
 }
 
+
+
+
 // Initialize services
 // const firebaseService = new FirebaseService({
 //   projectId: env.FIREBASE_PROJECT_ID,
@@ -34,35 +39,13 @@ interface EnvConfig {
 // });
 
 // Initialize Express
-const app = express();
-app.use(cors());
-app.use(express.json());
+ process.on('SIGTERM', async () => {
+      console.log('SIGTERM received. Closing database connection...');
+      //await DBService.getInstance().close();
+      process.exit(0);
+    });
 
-routers.forEach((router) => {
-  app.use(router.path, router.router);
-});
+    const app = new App();
 
-app.get("/",(req:Request,res,Response)=>{
+app.listen(3000);
 
-    res.send("Hellooo");
-
-})
-
-// Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  //logger.info(`Request: ${req.method} ${req.url}`, { body: req.body });
-  next();
-});
-
-  
-
-
-    
-
-
-
-// Start server
-const port = parseInt(process.env.PORT) || 3000;
-app.listen(port, () => {
-  logger.info(`Server running on port ${port}`);
-});

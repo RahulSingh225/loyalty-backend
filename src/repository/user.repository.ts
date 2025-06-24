@@ -1,9 +1,9 @@
 import { eq, sql } from "drizzle-orm";
-import { db } from "../server";
 import logger from '../services/logger.service'
 import { userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
+import BaseRepository from "./base.repository";
 
 
 /**
@@ -24,7 +24,7 @@ import { authMiddleware } from "../middleware/auth.middleware";
  * 
  * Note: Database operations rely on PostgreSQL stored procedures and require a valid `db` and `logger` instance.
  */
-class UserRepository {
+class UserRepository extends BaseRepository {
   private users: Map<string, any> = new Map();
   private redisClient:RedisClient = new RedisClient()
 
@@ -51,7 +51,7 @@ class UserRepository {
    * @throws Will throw an error if the database operation fails.
    */
   async onBoardRetailer(userData: any): Promise<any> {
-     const result = await db.execute(
+     const result:any = await this.db.execute(
       sql`onboard_retailer(
             ${userData.username},
             ${userData.mobile_number},
@@ -104,7 +104,7 @@ class UserRepository {
 
 
 
-    const result = await db.execute(
+    const result:any = await this.db.execute(
       sql`onboard_distributor(
             ${userData.username},
             ${userData.mobile_number},
@@ -216,16 +216,17 @@ class UserRepository {
    */
   
   async loginUser(payload:any): Promise<any> {
-const result = await db.execute(
-      sql`login_user(
-            ${payload.mobile_number},
-            ${'otp_verified'},
-            ${payload.fcm_token},
-            ${JSON.stringify(payload.device_details)}
-          )`)
-const user = result[0].login_user;
-    if (!user) {
-      throw new Error('User not found or invalid credentials');
+const result:any = await this.db.execute(
+      sql`SELECT * FROM public.login_user(
+          ${payload.mobile_number},
+          ${'otp_verified'},
+          ${payload.fcm_token},
+          ${JSON.stringify(payload.device_details)}::jsonb
+        )`)
+        console.log('Login result:', result.rows[0].login_user);
+const user = result.rows[0].login_user;
+    if (!user.success) {
+      throw new Error(user.error);
     }
     user.tokens = authMiddleware.generateUserToken(user)
     if(this.redisClient.isLive()){
@@ -236,8 +237,8 @@ const user = result[0].login_user;
 
   async getUserById(id: string): Promise<any | null> {
 
-    const result = await db.execute(sql`get_user_details(${parseInt(id)})`);
-    return result.rows.length > 0 ? result.rows[0].get_user_details : null;
+    const result = await this.db.execute(sql`get_user_details(${parseInt(id)})`);
+    return result[0].length > 0 ? result[0].get_user_details : null;
   }
 
   async updateUser(id: string, userData: any): Promise<any> {
@@ -256,7 +257,7 @@ const user = result[0].login_user;
     this.users.delete(id);
   }
   async listUsers(param: any): Promise<any[]> {
-    const result = await db.select().from(userMaster).where(eq(userMaster.userType,param.userType))
+    const result = await this.db.select().from(userMaster).where(eq(userMaster.userType,param.userType))
     return result;
   }
 }
