@@ -101,7 +101,7 @@ class App {
     });
 
     
-    this.app.listen(port, () => {
+    this.app.listen(port,'0.0.0.0', () => {
       console.log(`\nServer is running on port number : ${port} 🚀🚀🚀\n`);
     });
   }

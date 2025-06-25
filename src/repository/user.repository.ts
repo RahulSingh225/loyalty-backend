@@ -52,7 +52,7 @@ class UserRepository extends BaseRepository {
    */
   async onBoardRetailer(userData: any): Promise<any> {
      const result:any = await this.db.execute(
-      sql`onboard_retailer(
+      sql`SELECT * FROM public.onboard_retailer(
             ${userData.username},
             ${userData.mobile_number},
             ${userData.secondary_mobile_number},
@@ -69,11 +69,12 @@ class UserRepository extends BaseRepository {
             ${userData.state},
             ${'retailer'},
             ${userData.fcm_token},
-            ${JSON.stringify(userData.device_details)}
+            ${JSON.stringify(userData.device_details)}::jsonb
           )`
     );
-    logger.info('Retailer onboarded', { user_id: result[0].onboard_retailer.user_id });
-    return result[0].onboard_retailer;
+    console.log('Onboard Retailer Result:', result);
+    logger.info('Retailer onboarded', { user_id: result.rows[0].onboard_retailer });
+    return result.rows[0].onboard_retailer;
   }
 
 
@@ -123,8 +124,8 @@ class UserRepository extends BaseRepository {
             ${JSON.stringify(userData.device_details)}
           )`
     );
-    logger.info('Distributor onboarded', { user_id: result[0].onboard_distributor.user_id });
-    return result[0].onboard_distributor;
+    logger.info('Distributor onboarded', { user_id: result.rows[0].onboard_distributor.user_id });
+    return result.rows[0].onboard_distributor;
   }
 
 
@@ -237,8 +238,9 @@ const user = result.rows[0].login_user;
 
   async getUserById(id: string): Promise<any | null> {
 
-    const result = await this.db.execute(sql`get_user_details(${parseInt(id)})`);
-    return result[0].length > 0 ? result[0].get_user_details : null;
+    const result = await this.db.execute(sql`SELECT * FROM get_user_details(${parseInt(id)})`);
+    console.log('Get User By ID Result:', result);
+    return result.rows.length > 0 ? result.rows[0].get_user_details : null;
   }
 
   async updateUser(id: string, userData: any): Promise<any> {

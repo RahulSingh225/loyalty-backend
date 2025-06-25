@@ -38,7 +38,7 @@ export class FileService {
         )}`;
         break;
       case "CLAIMS":
-        filePath = `csimg/appImages/Claims/${filename}`;
+        filePath = `RANJIT/PRODUCT_CATALOG/${filename}`;
         break;
       default:
         break;
@@ -46,9 +46,9 @@ export class FileService {
     return filePath;
   }
 
-  async generateSignedUrl(fileName: string) {
+  async generateSignedUrl(filePath: string) {
     try {
-      const filePath = this.generateFilePath(fileName, "CLAIMS");
+      
       const params = {
         Bucket: this.bucketName,
         Key: filePath,

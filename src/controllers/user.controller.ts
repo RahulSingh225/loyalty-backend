@@ -8,21 +8,22 @@ class UserController {
   async getUserById(req: Request, res: Response) {
     try {
       // Extract authenticated user from JWT (set by middleware)
-      const authUser = req?.user as { id: string; user_type: string };
+      const authUser = req?.user 
       if (!authUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const requestedUserId = req.params.id;
-      const authUserId = authUser.id;
-      const authUserType = authUser.user_type;
+      const authUserId = authUser.userId;
+      const authUserType = authUser.userType;
+      console.log(`Auth User ID: ${authUserId}, Requested User ID: ${requestedUserId}, User Type: ${authUserType}`);
 
       // Access control logic based on user type
       let hasAccess = false;
 
       if (authUserType === "retailer") {
         // Retailer can only view their own profile
-        hasAccess = requestedUserId === authUserId;
+        hasAccess = Number(requestedUserId) === Number(authUserId);
       } else if (authUserType === "distributor") {
         // Distributor can view their own profile or any retailer's
         if (requestedUserId === authUserId) {
@@ -66,6 +67,7 @@ class UserController {
 
       // Fetch and return the user data
       const user = await this.userService.getUserById(requestedUserId);
+      console.log("Fetched User:", user);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }

@@ -78,6 +78,7 @@ class AuthController{
         }
       
       } catch (error) {
+        console.error('Error creating user:', error);
         res.status(400).json({ message: 'Bad request', error });
       }
     }

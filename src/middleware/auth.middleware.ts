@@ -104,11 +104,12 @@ export class AuthMiddleware {
   };
 
   generateUserToken = (user: any): AuthJwtPayload => {
+    console.log('Generating user token for:', user);
     const loginTokens: AuthJwtPayload = {
       accessToken: jwt.sign(
         {
-          userId: user.userId,
-          userType: user.userType,
+          userId: user.user_id,
+          userType: user.user_type,
           mobile: user.mobile,
         },
         ACCESSS_TOKEN_SECRET as string, // Use ACCESS_TOKEN_SECRET for accessToken
@@ -118,10 +119,9 @@ export class AuthMiddleware {
       ),
       refreshToken: jwt.sign(
         {
-          userId: user.userId,
-          userCode: user.userCode,
+           userId: user.user_id,
+          userType: user.user_type,
           mobile: user.mobile,
-          email: user.email,
         },
         REFRESH_TOKEN_SECRET as string,
         {
