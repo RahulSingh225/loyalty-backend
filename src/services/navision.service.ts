@@ -59,7 +59,7 @@ class NavisionService {
     }
   }
 
-  async syncCustomer(params: any) {
+  async syncCustomer() {
     try {
       const result = await this.makeRequest('/CustomerList_LoyaltyApp', 'GET');
       await this.bulkInsertCustomers(result.value);
@@ -69,7 +69,7 @@ class NavisionService {
     }
   }
 
-  async syncRetail(params: any) {
+  async syncRetail() {
     try {
       const result = await this.makeRequest('/RetailList_LoyaltyApp', 'GET');
       await this.bulkInsertRetailers(result.value);

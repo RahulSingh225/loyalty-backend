@@ -6,6 +6,8 @@ import { routers } from "./routes";
 
 
 import { RedisClient } from "./services/redis.service";
+import { initializeAgent } from "./utills/serverAgent";
+import logger from "./services/logger.service";
 
 class App {
   private app: Application;
@@ -17,7 +19,7 @@ class App {
     this.initializeFileService();
     this.corsConfig();
     this.initializeMiddleware();
-    
+    initializeAgent(logger);
     this.setupRoutes();
   }
 
