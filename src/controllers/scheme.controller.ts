@@ -1,7 +1,11 @@
 import { schemeRepository } from "../repository";
 import { Request, Response } from "express";
+import { FileService } from "../services/file.service";
 
 class SchemeController {
+  constructor(){
+
+  }
   // async createScheme(req: Request, res: Response) {
   //   try {
   //     const result = await schemeRepository.createScheme(req.body);
@@ -13,10 +17,15 @@ class SchemeController {
 
   async getSchemes(req:any, res: Response) {
     try {
-      const userId = req.user.userId;
-      const result = await schemeRepository.getSchemes(userId);
+      const fileService = new FileService()
+  
+      const result = await schemeRepository.getSchemes(1);
+      await Promise.all(result.map(async (scheme: any) => {
+      scheme.schemeResourcee = await fileService.generateSignedUrl(scheme.schemeResourcee)
+    }));
       return res.status(200).json(result);
     } catch (error) {
+      console.log(error)
       return res.status(500).json(error.message);
     }
   }

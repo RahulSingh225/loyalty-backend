@@ -8,6 +8,7 @@ import { routers } from "./routes";
 import { RedisClient } from "./services/redis.service";
 import { initializeAgent } from "./utills/serverAgent";
 import logger from "./services/logger.service";
+import NavisionService from "./services/navision.service";
 
 class App {
   private app: Application;
@@ -97,6 +98,17 @@ class App {
 
 })
 
+
+ this.app.get("/sync",async (req:Request,res,Response)=>{
+
+    const nav = new NavisionService();
+    //await nav.syncVendor()
+     await nav.syncCustomer()
+    await nav.syncRetail()
+
+    res.send("Donee")
+
+})
     // Your routes and middleware here
     this.app.get('/health', (req, res) => {
       res.status(200).json({ status: 'OK', database: 'connected' });

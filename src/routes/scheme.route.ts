@@ -4,7 +4,7 @@ const schemeRouter = Router();
 
 const schemeRoutes = [
   // { method: "post", path: "/schemes", handler: schemeController.createScheme },
-  { method: "get", path: "/schemes", handler: schemeController.getSchemes },
+  { method: "get", path: "/", handler: schemeController.getSchemes },
   // {
   //   method: "put",
   //   path: "/schemes/:id",
