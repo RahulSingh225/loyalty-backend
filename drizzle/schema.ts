@@ -286,6 +286,8 @@ export const redemptionRequest = pgTable("redemption_request", {
 	fulfillmentDetails: text("fulfillment_details"),
 	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	deliveryAddress: text("delivery_address"),
+	quantity: numeric(),
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],

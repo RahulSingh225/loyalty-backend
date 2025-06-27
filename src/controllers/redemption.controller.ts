@@ -7,12 +7,14 @@ class RedemptionController {
       const result = await redemptionRepository.initiateRedemption(req.body);
       return res.status(201).json(result);
     } catch (error) {
+      console.log(error)
       return res.status(500).json(error.message);
     }
   }
 
   async getRedemptions(req:any, res: Response) {
     try {
+      
       const userId = req.user.userId;
       const result = await redemptionRepository.getRedemptions(userId);
       return res.status(200).json(result);
@@ -58,7 +60,15 @@ class RedemptionController {
   async showRewards(req: Request, res: Response) {
     try {
       const result = await redemptionRepository.showRewards();
-      return res.status(200).json(result);
+      console.log(result[0])
+      const output = result.map(record => ({
+    id: record.giftId,
+    title: record.giftName,
+    image: record.imageUrl,
+    points: record.value
+  }));
+
+      return res.status(200).json(output);
     } catch (error) {
       return res.status(500).json(error.message);
     }

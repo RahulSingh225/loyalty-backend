@@ -6,9 +6,9 @@ import { routers } from "./routes";
 
 
 import { RedisClient } from "./services/redis.service";
-import { initializeAgent } from "./utills/serverAgent";
+//import { initializeAgent } from "./utills/serverAgent";
 import logger from "./services/logger.service";
-import NavisionService from "./services/navision.service";
+//import NavisionService from "./services/navision.service";
 
 class App {
   private app: Application;
@@ -20,7 +20,7 @@ class App {
     this.initializeFileService();
     this.corsConfig();
     this.initializeMiddleware();
-    initializeAgent(logger);
+    //initializeAgent(logger);
     this.setupRoutes();
   }
 
@@ -101,10 +101,10 @@ class App {
 
  this.app.get("/sync",async (req:Request,res,Response)=>{
 
-    const nav = new NavisionService();
+    //const nav = new NavisionService();
     //await nav.syncVendor()
-     await nav.syncCustomer()
-    await nav.syncRetail()
+    //  await nav.syncCustomer()
+    // await nav.syncRetail()
 
     res.send("Donee")
 

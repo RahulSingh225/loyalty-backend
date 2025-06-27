@@ -18,18 +18,25 @@ class RedemptionRepository extends BaseRepository {
         rewardId: payload.giftId,
         pointsValue: payload.amount.toFixed(2), // Convert to string with 2 decimal places to match numeric(10,2)
         status: 'pending',
-        method: 'default', // Placeholder; adjust based on requirements
+        method: 'gift', // Placeholder; adjust based on requirements
         pointsRedeemed: payload.amount, // Assuming pointsRedeemed equals amount
+        deliveryAddress:payload.address,
+        quantity:payload.quantity,
         createdAt: new Date().toISOString(), // Set current timestamp
       };
     const redemptionResult = await this.db.insert(redemptionRequest).values(values).returning();
-    await this.db.execute(sql`update_points(${payload.userId}, ${payload.amount},'consume') `)
+   const response =  await this.db.execute(sql`SELECT * FROM public.update_points(${payload.userId}, ${payload.amount},'consume') `)
+   console.log(response.rows[0].update_points)
 
     return redemptionResult[0];
   }
 
   async getRedemptions(userId: string) {
-    const result = await this.db.select().from(redemptionRequest).where(eq(redemptionRequest.userId, Number(userId)));
+   const result = await this.db
+  .select()
+  .from(redemptionRequest)
+  .innerJoin(gifts, eq(gifts.giftId, redemptionRequest.rewardId))
+  .where(eq(redemptionRequest.userId, Number(userId)));
     return result;
   }
 

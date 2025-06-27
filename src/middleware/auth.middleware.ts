@@ -114,7 +114,7 @@ export class AuthMiddleware {
         },
         ACCESSS_TOKEN_SECRET as string, // Use ACCESS_TOKEN_SECRET for accessToken
         {
-          expiresIn: ACCESSS_TOKEN_EXPIRY,
+          expiresIn: '7d',
         } as SignOptions
       ),
       refreshToken: jwt.sign(
@@ -125,7 +125,7 @@ export class AuthMiddleware {
         },
         REFRESH_TOKEN_SECRET as string,
         {
-          expiresIn: REFRESH_TOKEN_EXPIRY,
+          expiresIn: '7d',
         } as SignOptions
       ),
     };

@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Create a connection pool
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL, // e.g. postgres://user:pass@host:port/db
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
