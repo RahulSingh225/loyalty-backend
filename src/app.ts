@@ -8,6 +8,7 @@ import { routers } from "./routes";
 import { RedisClient } from "./services/redis.service";
 //import { initializeAgent } from "./utills/serverAgent";
 import logger from "./services/logger.service";
+import NavisionService from "./services/navision.service";
 //import NavisionService from "./services/navision.service";
 
 class App {
@@ -101,10 +102,12 @@ class App {
 
  this.app.get("/sync",async (req:Request,res,Response)=>{
 
-    //const nav = new NavisionService();
-    //await nav.syncVendor()
-    //  await nav.syncCustomer()
-    // await nav.syncRetail()
+    const nav = new NavisionService();
+    //await nav.syncCustomer();
+    await nav.syncRetail()
+    // await nav.syncSalesLedger()
+    //  await nav.syncSalesClaimTransfer()
+    // await nav.syncSalesPersonList()
 
     res.send("Donee")
 

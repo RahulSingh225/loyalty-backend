@@ -22,6 +22,7 @@ interface OnboardData {
   city: string | null;
   state: string | null;
   user_type: string;
+  navision_id:string;
   fcm_token: string | null;
   device_details: object | null; // Changed to object for jsonb
 }
@@ -43,6 +44,8 @@ interface CustomerMaster {
   salesAgentName: string | null;
   salespersonCode: string | null;
   etag: string | null;
+   
+
   createdAt: string;
   onboarded: boolean;
   onboardedAt: string | null;
@@ -61,6 +64,8 @@ interface NotifyCustomer {
   whatsappNo2: string | null;
   salesAgent: string | null;
   salesAgentName: string | null;
+    
+
   salesPerson: string | null;
   agentCodeVisibility: boolean | null;
   pANNo: string | null;
@@ -139,7 +144,7 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
     });
 
     const result = await client.query<{ result: OnboardResult }>(
-      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) AS result`,
+      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,$15,$16) AS result`,
       [
         data.username,
         data.mobile_number,
@@ -147,8 +152,7 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
         data.password,
         data.shop_name,
         data.shop_address,
-        data.home_address,
-        data.work_address,
+       
         data.pan_id,
         data.aadhar_id,
         data.gst_id,
@@ -157,6 +161,7 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
         data.state,
         data.user_type,
         data.fcm_token,
+        data.navision_id,
         data.device_details ?? null, // jsonb parameter
       ]
     );
@@ -249,6 +254,7 @@ async function onboardAll() {
       state: c.stateCode,
       user_type: 'Retailer',
       fcm_token: null,
+      navision_id:c.no,
       device_details: null,
     });
 
@@ -269,6 +275,7 @@ async function onboardAll() {
       state: n.stateCode,
       user_type: 'Retailer',
       fcm_token: null,
+      navision_id:n.no,
       device_details: null,
     });
 
@@ -289,6 +296,7 @@ async function onboardAll() {
       state: r.state,
       user_type: 'Retailer',
       fcm_token: null,
+      navision_id:r.no,
       device_details: null,
     });
 
