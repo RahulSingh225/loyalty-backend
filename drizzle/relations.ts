@@ -1,13 +1,13 @@
 import { relations } from "drizzle-orm/relations";
-import { userMaster, distributor, pointAllocationLog, redemptionRequest, salesperson, transaction, notificationLog, retailer, userRoles, permissions, rolePermissions } from "./schema";
+import { userMaster, distributor, pointAllocationLog, redemptionRequest, transaction, notificationLog, retailer, salesperson, userRoles, permissions, rolePermissions } from "./schema";
 
 export const distributorRelations = relations(distributor, ({one, many}) => ({
 	userMaster: one(userMaster, {
 		fields: [distributor.userId],
 		references: [userMaster.userId]
 	}),
-	salespeople: many(salesperson),
 	retailers: many(retailer),
+	salespeople: many(salesperson),
 }));
 
 export const userMasterRelations = relations(userMaster, ({one, many}) => ({
@@ -22,10 +22,10 @@ export const userMasterRelations = relations(userMaster, ({one, many}) => ({
 		relationName: "pointAllocationLog_targetUserId_userMaster_userId"
 	}),
 	redemptionRequests: many(redemptionRequest),
-	salespeople: many(salesperson),
 	transactions: many(transaction),
 	notificationLogs: many(notificationLog),
 	retailers: many(retailer),
+	salespeople: many(salesperson),
 	userRole: one(userRoles, {
 		fields: [userMaster.roleId],
 		references: [userRoles.roleId]
@@ -57,17 +57,6 @@ export const redemptionRequestRelations = relations(redemptionRequest, ({one}) =
 	}),
 }));
 
-export const salespersonRelations = relations(salesperson, ({one}) => ({
-	distributor: one(distributor, {
-		fields: [salesperson.distributorId],
-		references: [distributor.distributorId]
-	}),
-	userMaster: one(userMaster, {
-		fields: [salesperson.userId],
-		references: [userMaster.userId]
-	}),
-}));
-
 export const transactionRelations = relations(transaction, ({one}) => ({
 	userMaster: one(userMaster, {
 		fields: [transaction.userId],
@@ -89,6 +78,17 @@ export const retailerRelations = relations(retailer, ({one}) => ({
 	}),
 	userMaster: one(userMaster, {
 		fields: [retailer.userId],
+		references: [userMaster.userId]
+	}),
+}));
+
+export const salespersonRelations = relations(salesperson, ({one}) => ({
+	distributor: one(distributor, {
+		fields: [salesperson.distributorId],
+		references: [distributor.distributorId]
+	}),
+	userMaster: one(userMaster, {
+		fields: [salesperson.userId],
 		references: [userMaster.userId]
 	}),
 }));

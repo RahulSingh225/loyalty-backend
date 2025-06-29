@@ -1,11 +1,119 @@
 import axios from 'axios';
-import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, navisionNotifyCustomer, salesPointLedgerEntry, salesPointsClaimTransfer, navisionSalespersonList } from '../db/schema';
-import { db } from './db.service';
+import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, navisionNotifyCustomer, salesPointLedgerEntry, salesPointsClaimTransfer, navisionSalespersonList, retailerRewardPointEntry, retailer, distributor, userMaster, salesperson } from '../db/schema';
+import { db, pool } from './db.service';
 import dotenv from 'dotenv';
-import {  sql } from 'drizzle-orm';
+import * as bcrypt from 'bcrypt';
+import {  and, eq, isNotNull, ne, sql, sum } from 'drizzle-orm';
+import { PoolClient } from 'pg';
     type VendorInsert = typeof navisionVendorMaster.$inferInsert;
     type RetailerInsert = typeof navisionRetailMaster.$inferInsert;
     type CustomerInsert = typeof navisionCustomerMaster.$inferInsert;
+    interface MergedPoint {
+  id: string; // Adjust type if navision_id is a number
+  totalPoints: number;
+}
+
+    interface OnboardData {
+  username: string;
+  mobile_number: string;
+  secondary_mobile_number: string | null;
+  password: string;
+  shop_name: string;
+  shop_address: string | null;
+  home_address: string | null;
+  work_address: string | null;
+  pan_id: string | null;
+  aadhar_id: string | null;
+  gst_id: string | null;
+  pin_code: string | null;
+  city: string | null;
+  state: string | null;
+  user_type: string;
+  navision_id:string;
+  fcm_token: string | null;
+  device_details: object | null; // Changed to object for jsonb
+}
+
+interface CustomerMaster {
+  no: string;
+  name: string;
+  address: string;
+  address2: string | null;
+  city: string | null;
+  postCode: string | null;
+  stateCode: string | null;
+  countryRegionCode: string | null;
+  whatsappNo1: string | null;
+  whatsappNo2: string | null;
+  pANNo: string | null;
+  gstRegistrationNo: string | null;
+  salesAgent: string | null;
+  salesAgentName: string | null;
+  salespersonCode: string | null;
+  etag: string | null;
+   
+
+  createdAt: string;
+  onboarded: boolean;
+  onboardedAt: string | null;
+}
+
+interface NotifyCustomer {
+  no: string | null;
+  name: string | null;
+  address: string | null;
+  address2: string | null;
+  city: string | null;
+  postCode: string | null;
+  stateCode: string | null;
+  countryRegionCode: string | null;
+  whatsappNo: string | null;
+  whatsappNo2: string | null;
+  salesAgent: string | null;
+  salesAgentName: string | null;
+    
+
+  salesPerson: string | null;
+  agentCodeVisibility: boolean | null;
+  pANNo: string | null;
+  gstRegistrationNo: string | null;
+  etag: string | null;
+}
+
+interface RetailMaster {
+  no: string;
+  address2: string | null;
+  city: string | null;
+  countryRegionCode: string | null;
+  whatsappNo: string | null;
+  pANNo: string | null;
+  gstRegistrationNo: string | null;
+  beatName: string | null;
+  gujarat: boolean | null;
+  etag: string | null;
+  createdAt: string;
+  onboarded: boolean;
+  onboardedAt: string | null;
+  shopName: string | null;
+  shopAddress: string | null;
+  pinCode: string | null;
+  state: string | null;
+  whatsappNo2: string | null;
+  agentName: string | null;
+  supplyFrom: string | null;
+  aadhaarNo: string | null;
+  salesPersonCode: string | null;
+  salesPersonName: string | null;
+  agentCode: string | null;
+}
+
+// Interface for onboard_retailer return value
+interface OnboardResult {
+  success: boolean;
+  user_id?: number;
+  retailer_id?: number;
+  error?: string;
+}
 
 class NavisionService {
   
@@ -13,11 +121,11 @@ class NavisionService {
 
     dotenv.config(); // Ensure dotenv is configured to load environment variables
   }
-   hasKey(object, key) {
+   private hasKey(object, key) {
     return object?.[key] !== undefined;
 }
 
-  generateBasicAuth(username: string, password: string): string {
+  private generateBasicAuth(username: string, password: string): string {
     try {
       // Combine username and password with a colon
       const credentials = `${username}:${password}`;
@@ -197,6 +305,28 @@ try {
       throw new Error('Failed to sync retail data with Navision');
     }
   }
+ async syncRetailerReward(){
+    try {
+      const result = await this.makeRequest(`${process.env.NAVISION_URL}/RetailerRewardPoint_LoyaltyApp`, 'GET');
+            
+      await this.bulkInsertRetailerRewardPointEntry(result.value);
+      if(this.hasKey(result,'odata.nextLink')){
+        let secondaryResult = result; // Use let instead of var for block scope
+      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
+        // Fetch next page
+        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
+        // Process next batch of customer data
+        await this.bulkInsertRetailerRewardPointEntry(secondaryResult.value);
+      }
+      }
+    } catch (error: any) {
+      console.error('Error syncing retail:', error);
+      throw new Error('Failed to sync retail data with Navision');
+    }
+ }
+
+
+
 
 async  bulkInsertCustomers(customers) {
   try {
@@ -336,7 +466,53 @@ async  bulkInsertCustomers(customers) {
 }
 
 
+async  bulkInsertRetailerRewardPointEntry(data) {
+  try {
+    // Handle both single object and array of objects
+    const records = Array.isArray(data) ? data : [data];
+    
+    // Filter out records with missing Document_No and log them
+    const validRecords = records.filter(record => {
+      if (!record['Document_No']) {
+        console.warn(`Skipping record due to missing documentNo: ${JSON.stringify(record)}`);
+        return false;
+      }
+      return true;
+    });
 
+    if (validRecords.length === 0) {
+      console.log('No valid records to insert into retailer_reward_point_entry');
+      return;
+    }
+
+    await db
+      .insert(retailerRewardPointEntry)
+      .values(validRecords.map(record => ({
+        entryNo: record['Entry_No'],
+        entryDate: record['Entry_Date'],
+        purchaseFromVendorNo: record['Purchase_from_Vendor_No'],
+        status: record['Status'],
+        scheme: record['Scheme'],
+        agentCode: record['Agent_Code'],
+        agentName: record['Agent_Name'],
+        partyNo: record['Party_No'],
+        partyName: record['Party_Name'],
+        documentNo: record['Document_No'],
+        whatsappNo: record['WhatsApp_No'],
+        whatsappNo2: record['WhatsApp_No_2'],
+        courierName: record['Courier_Name'],
+        giftArticleName: record['Gift_Article_Name'],
+        qty: record['Qty'],
+        etag: record['ETag'],
+      })))
+      .onConflictDoNothing({ target: retailerRewardPointEntry.entryNo });
+
+    console.log(`Inserted ${validRecords.length} records into retailer_reward_point_entry`);
+  } catch (error) {
+    console.error('Error inserting into retailer_reward_point_entry:', error);
+    throw error;
+  }
+}
 
 async  bulkInsertVendors(vendors: any[]) {
   try {
@@ -760,6 +936,695 @@ async bulkInsertNavisionSalespersonList(dataArray) {
   } catch (error) {
     console.error('Error during bulk insert into navision_salesperson_list:', error);
     throw error;
+  }
+}
+
+
+// Function to generate a username from the vendor name
+ generateUsername(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '_').substring(0, 50); // Simple username generation
+}
+
+// Function to generate a default password
+async  generatePassword(): Promise<string> {
+  const saltRounds = 10;
+  const defaultPassword = 'defaultPassword123'; // Replace with a secure random password generator if needed
+  return bcrypt.hash(defaultPassword, saltRounds);
+}
+
+// Main function to onboard distributors
+async  onboardDistributors(): Promise<void> {
+  try {
+    // Fetch vendors where onboarded is false
+    const vendors = await db
+      .select()
+      .from(navisionVendorMaster)
+      .where(eq(navisionVendorMaster.onboarded, false));
+
+    if (!vendors.length) {
+      console.log('No vendors to onboard.');
+      return;
+    }
+
+    for (const vendor of vendors) {
+      try {
+        // Prepare parameters for onboard_distributor
+        const username = this.generateUsername(vendor.name || 'vendor_' + vendor.no);
+        const password = await this.generatePassword();
+        const userType = 'distributor'; // Default user type
+        const deviceDetails = {}; // Placeholder; replace with actual data if available
+
+        // Call onboard_distributor function
+        const result = await pool.query(
+          `SELECT * FROM onboard_distributor($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          [
+            vendor.name,
+            vendor.whatsappNo || vendor.whatsappMobileNumber || null, // Map to mobile_number
+            vendor.whatsappMobileNumber || null, // Map to secondary_mobile_number
+            password,
+            vendor.name || null, // distributor_name
+            vendor.name || null, // contact_person (using name as fallback)
+            vendor.whatsappNo || null, // phone_number
+            null, // email (not available in schema)
+            vendor.address || null,
+            vendor.city || null,
+            vendor.stateCode || null,
+            vendor.postCode || null,
+            userType,
+            null, // fcm_token (not available)
+            vendor.no || null, // navision_id
+            deviceDetails,
+          ]
+        );
+
+        const response = result.rows[0];
+        console.log(response)
+
+        if (response.success) {
+          // Update onboarded status and timestamp
+          await db
+            .update(navisionVendorMaster)
+            .set({
+              onboarded: true,
+              onboardedAt: sql`CURRENT_TIMESTAMP`,
+            })
+            .where(eq(navisionVendorMaster.no, vendor.no));
+
+          console.log(`Successfully onboarded vendor ${vendor.no}: user_id=${response.user_id}, distributor_id=${response.distributor_id}`);
+        } else {
+          console.error(`Failed to onboard vendor ${vendor.no}: ${response.error}`);
+        }
+      } catch (error) {
+        console.error(`Error onboarding vendor ${vendor.no}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+  } finally {
+    await pool.end();
+  }
+}
+
+// Validate OnboardData before calling the procedure
+ validateOnboardData(data: OnboardData): boolean {
+  if (!data.username || !data.mobile_number || !data.shop_name || !data.user_type || !data.password) {
+    console.error(`Validation failed: Missing required fields for ${data.mobile_number || 'unknown'}`);
+    return false;
+  }
+  return true;
+}
+
+// Generic function to call onboard_retailer procedure
+async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResult> {
+  if (!this.validateOnboardData(data)) {
+    return { success: false, error: `Invalid data for ${data.mobile_number || 'unknown'}` };
+  }
+  try {
+    // Log parameters for debugging
+    console.log('Calling onboard_retailer with:', {
+      username: data.username,
+      mobile_number: data.mobile_number,
+      secondary_mobile_number: data.secondary_mobile_number,
+      shop_name: data.shop_name,
+      user_type: data.user_type,
+    });
+
+    const result = await client.query<{ result: OnboardResult }>(
+      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,$15,$16) AS result`,
+      [
+        data.username,
+        data.mobile_number,
+        data.secondary_mobile_number,
+        data.password,
+        data.shop_name,
+        data.shop_address,
+       
+        data.pan_id,
+        data.aadhar_id,
+        data.gst_id,
+        data.pin_code,
+        data.city,
+        data.state,
+        data.user_type,
+        data.fcm_token,
+        data.navision_id,
+        data.device_details ?? null, // jsonb parameter
+      ]
+    );
+    const onboardResult = result.rows[0]?.result;
+    if (onboardResult.success) {
+      console.log(`Successfully onboarded: ${data.mobile_number} (user_id: ${onboardResult.user_id}, retailer_id: ${onboardResult.retailer_id})`);
+    } else {
+      console.error(`Failed to onboard ${data.mobile_number}: ${onboardResult.error}`);
+    }
+    return onboardResult;
+  } catch (err: any) {
+    const errorMessage = `Failed to onboard ${data.mobile_number}: ${err.message}`;
+    console.error(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Process records in batches
+async  processBatch<T>(
+  records: T[],
+  mapToOnboardData: (record: T) => OnboardData,
+  tableName: string
+): Promise<void> {
+    const BATCH_SIZE=50;
+
+  const client = await pool.connect();
+  try {
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      const batchData = batch.map(mapToOnboardData); // Map to OnboardData
+      const batchPromises = batchData.map((data) =>
+        this.callProcedure(client, data).catch((err) => ({
+          error: err,
+          mobile_number: data.mobile_number,
+        }))
+      );
+
+      const results = await Promise.all(batchPromises);
+      results.forEach((result, index) => {
+        if (result && 'error' in result) {
+          console.error(
+            `Error in ${tableName} for record ${batchData[index].mobile_number || 'unknown'}: ${
+              result.error.message || result.error
+            }`
+          );
+        }
+      });
+      console.log(`Processed batch ${i / BATCH_SIZE + 1} of ${tableName}`);
+    }
+  } finally {
+    client.release();
+  }
+}
+
+async  onboardAllRetailers() {
+  try {
+    const hashedPassword = 'Test@123'
+    // Verify if onboard_retailer function exists
+    const checkProcedure = await pool.query(
+      `SELECT EXISTS (
+        SELECT 1
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public' AND p.proname = 'onboard_retailer'
+      ) AS exists`
+    );
+    if (!checkProcedure.rows[0].exists) {
+      throw new Error('Stored procedure onboard_retailer does not exist in the public schema');
+    }
+
+    // Fetch all data concurrently
+    const [customers, notifyCustomers, retailCustomers] = await Promise.all([
+      db.select().from(navisionCustomerMaster),
+      db.select().from(navisionNotifyCustomer),
+      db.select().from(navisionRetailMaster),
+    ]);
+
+    // Map functions to convert table records to OnboardData
+    const mapCustomerMaster = (c: CustomerMaster): OnboardData => ({
+      username: c.name,
+      mobile_number: c.whatsappNo1 ?? '',
+      secondary_mobile_number: c.whatsappNo2,
+      password: hashedPassword,
+      shop_name: c.name,
+      shop_address: c.address,
+      home_address: c.address2,
+      work_address: null,
+      pan_id: c.pANNo,
+      aadhar_id: null,
+      gst_id: c.gstRegistrationNo,
+      pin_code: c.postCode,
+      city: c.city,
+      state: c.stateCode,
+      user_type: 'Retailer',
+      fcm_token: null,
+      navision_id:c.no,
+      device_details: null,
+    });
+
+    const mapNotifyCustomer = (n: NotifyCustomer): OnboardData => ({
+      username: n.name ?? '',
+      mobile_number: n.whatsappNo ?? '',
+      secondary_mobile_number: n.whatsappNo2,
+      password: hashedPassword,
+      shop_name: n.name ?? '',
+      shop_address: n.address,
+      home_address: n.address2,
+      work_address: null,
+      pan_id: n.pANNo,
+      aadhar_id: null,
+      gst_id: n.gstRegistrationNo,
+      pin_code: n.postCode,
+      city: n.city,
+      state: n.stateCode,
+      user_type: 'Retailer',
+      fcm_token: null,
+      navision_id:n.no,
+      device_details: null,
+    });
+
+    const mapRetailMaster = (r: RetailMaster): OnboardData => ({
+      username: r.shopName ?? '',
+      mobile_number: r.whatsappNo ?? '',
+      secondary_mobile_number: r.whatsappNo2,
+      password: hashedPassword,
+      shop_name: r.shopName ?? '',
+      shop_address: r.shopAddress,
+      home_address: r.address2,
+      work_address: null,
+      pan_id: r.pANNo,
+      aadhar_id: r.aadhaarNo,
+      gst_id: r.gstRegistrationNo,
+      pin_code: r.pinCode,
+      city: r.city,
+      state: r.state,
+      user_type: 'Retailer',
+      fcm_token: null,
+      navision_id:r.no,
+      device_details: null,
+    });
+
+    // Process all tables concurrently with batching
+    await Promise.all([
+      this.processBatch<CustomerMaster>(customers, mapCustomerMaster, 'navisionCustomerMaster'),
+      this.processBatch<NotifyCustomer>(notifyCustomers, mapNotifyCustomer, 'navisionNotifyCustomer'),
+      this.processBatch<RetailMaster>(retailCustomers, mapRetailMaster, 'navisionRetailMaster'),
+    ]);
+
+    console.log('✅ Bulk onboarding complete');
+  } catch (err: any) {
+    console.error('❌ Error during onboarding:', err.message);
+    throw err;
+  } finally {
+    await pool.end(); // Close the connection pool
+  }
+}
+async  mapDist(){
+
+    const navision = await db.select({navId:retailer.navisionId}).from(retailer)
+
+    for await (let n of navision){
+        const naventry = await db.select().from(navisionRetailMaster).where(eq(navisionRetailMaster.no,n.navId))
+        if(naventry.length){
+
+ const distEntry = await db.select().from(distributor).where(eq(distributor.navisionId,naventry[0].agentCode))
+ if(distEntry.length)await db.update(retailer).set({distributorId:distEntry[0].distributorId})
+
+        }
+       
+    }
+}
+
+
+async  totalPoints() {
+  try {
+    const retailresult = await db
+      .select({
+        retailerNo: salesPointLedgerEntry.retailerNo,
+        totalSalesPoints: sum(salesPointLedgerEntry.salesPoints).as('total_sales_points'),
+      })
+      .from(salesPointLedgerEntry)
+      .where(
+        and(
+          ne(salesPointLedgerEntry.documentType, 'Claim'),
+          isNotNull(salesPointLedgerEntry.retailerNo)
+        )
+      )
+      .groupBy(salesPointLedgerEntry.retailerNo);
+
+      const cusotmerresult = await db
+      .select({
+        customerNo: salesPointLedgerEntry.customerNo,
+        totalSalesPoints: sum(salesPointLedgerEntry.salesPoints).as('total_sales_points'),
+      })
+      .from(salesPointLedgerEntry)
+      .where(
+        and(
+          ne(salesPointLedgerEntry.documentType, 'Claim'),
+          isNotNull(salesPointLedgerEntry.customerNo)
+        )
+      )
+      .groupBy(salesPointLedgerEntry.customerNo);
+
+
+      const notifyresult = await db
+      .select({
+        notifyCustomerNo: salesPointLedgerEntry.notifyCustomerNo,
+        totalSalesPoints: sum(salesPointLedgerEntry.salesPoints).as('total_sales_points'),
+      })
+      .from(salesPointLedgerEntry)
+      .where(
+        and(
+          ne(salesPointLedgerEntry.documentType, 'Claim'),
+          isNotNull(salesPointLedgerEntry.notifyCustomerNo)
+        )
+      )
+      .groupBy(salesPointLedgerEntry.notifyCustomerNo);
+
+      for await (let n of notifyresult){
+        await db.update(retailer).set({totalPoints:(n.totalSalesPoints)}).where(eq(retailer.navisionId,n.notifyCustomerNo))
+        
+      }
+       for await (let c of cusotmerresult){
+        await db.update(retailer).set({totalPoints:(c.totalSalesPoints)}).where(eq(retailer.navisionId,c.customerNo))
+        
+      }
+       for await (let r of retailresult){
+        await db.update(retailer).set({totalPoints:(r.totalSalesPoints)}).where(eq(retailer.navisionId,r.retailerNo))
+        
+      }
+await db
+      .update(userMaster)
+      .set({
+        totalPoints: sql`(SELECT ${retailer.totalPoints} FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`
+      })
+      .where(
+        sql`EXISTS (SELECT 1 FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`
+      );
+    
+  } catch (error) {
+    console.error('Error syncing retailer navision IDs:', error);
+    throw new Error(`Failed to sync retailer navision IDs: ${error.message}`);
+  }
+}
+
+
+
+async  claimPoints() {
+  try {
+    // Step 1: Merge points from sales_point_ledger_entry (and optionally sales_points_claim_transfer)
+    console.log('Fetching merged points...');
+    const mergedPointsQuery = await db
+      .select({
+        id: sql`navision_id`.as('id'),
+        totalPoints: sql`ABS(SUM(total_points))`.as('totalPoints'),
+      })
+      .from(
+        sql`(SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+             FROM ${salesPointLedgerEntry}
+             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+               AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+             GROUP BY ${salesPointLedgerEntry.retailerNo}
+             UNION ALL
+             SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+             FROM ${salesPointLedgerEntry}
+             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+               AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+             GROUP BY ${salesPointLedgerEntry.customerNo}
+             UNION ALL
+             SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+             FROM ${salesPointLedgerEntry}
+             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+               AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
+             GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
+             -- Uncomment the following if sales_points_claim_transfer is needed
+             /*
+             UNION ALL
+             SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+             FROM ${salesPointsClaimTransfer}
+             WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
+               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+               AND ${salesPointsClaimTransfer.lineType} = 'Header'
+               AND ${salesPointsClaimTransfer.status} = 'Submitted'
+             GROUP BY ${salesPointsClaimTransfer.retailerNo}
+             UNION ALL
+             SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+             FROM ${salesPointsClaimTransfer}
+             WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
+               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+               AND ${salesPointsClaimTransfer.lineType} = 'Header'
+               AND ${salesPointsClaimTransfer.status} = 'Submitted'
+             GROUP BY ${salesPointsClaimTransfer.customerNo}
+             UNION ALL
+             SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+             FROM ${salesPointsClaimTransfer}
+             WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
+               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+               AND ${salesPointsClaimTransfer.lineType} = 'Header'
+               AND ${salesPointsClaimTransfer.status} = 'Submitted'
+             GROUP BY ${salesPointsClaimTransfer.notifyCustomer}
+             */
+             ) AS combined`
+      )
+      .groupBy(sql`navision_id`);
+const mergedPoints: MergedPoint[] = mergedPointsQuery as unknown as MergedPoint[];
+    console.log('Merged points:', JSON.stringify(mergedPoints, null, 2));
+    if (!mergedPoints || mergedPoints.length === 0) {
+      console.warn('No merged points found. Check source data in sales_point_ledger_entry.');
+      return { mergedPoints: [] };
+    }
+
+    // Step 2: Check navision_id matches in retailer table
+    console.log('Checking navision_id matches in retailer table...');
+    const retailerIds = await db
+      .select({ navisionId: retailer.navisionId })
+      .from(retailer);
+    console.log('Retailer navisionIds:', retailerIds.map(r => r.navisionId));
+
+    const navisionIds = mergedPoints.map(p => p.id);
+    console.log('Navision IDs from mergedPoints:', navisionIds);
+    const matchingIds = retailerIds.filter(r => navisionIds.includes(r.navisionId));
+    console.log('Matching navisionIds:', matchingIds.map(r => r.navisionId));
+    if (matchingIds.length === 0) {
+      console.warn('No matching navisionIds found. Retailer update will not occur.');
+    }
+
+    // Step 3: Update retailer.consumedPoints
+    console.log('Updating retailer consumedPoints...');
+    const retailerUpdateResult = await db
+      .update(retailer)
+      .set({
+        consumedPoints: sql`(SELECT ABS(SUM(total_points)) FROM (
+          SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+          FROM ${salesPointLedgerEntry}
+          WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+            AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+          GROUP BY ${salesPointLedgerEntry.retailerNo}
+          UNION ALL
+          SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+          FROM ${salesPointLedgerEntry}
+          WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+            AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+          GROUP BY ${salesPointLedgerEntry.customerNo}
+          UNION ALL
+          SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+          FROM ${salesPointLedgerEntry}
+          WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+            AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
+          GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
+          -- Uncomment the following if sales_points_claim_transfer is needed
+          /*
+          UNION ALL
+          SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+          FROM ${salesPointsClaimTransfer}
+          WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
+            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+            AND ${salesPointsClaimTransfer.lineType} = 'Header'
+            AND ${salesPointsClaimTransfer.status} = 'Submitted'
+          GROUP BY ${salesPointsClaimTransfer.retailerNo}
+          UNION ALL
+          SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+          FROM ${salesPointsClaimTransfer}
+          WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
+            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+            AND ${salesPointsClaimTransfer.lineType} = 'Header'
+            AND ${salesPointsClaimTransfer.status} = 'Submitted'
+          GROUP BY ${salesPointsClaimTransfer.customerNo}
+          UNION ALL
+          SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+          FROM ${salesPointsClaimTransfer}
+          WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
+            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+            AND ${salesPointsClaimTransfer.lineType} = 'Header'
+            AND ${salesPointsClaimTransfer.status} = 'Submitted'
+          GROUP BY ${salesPointsClaimTransfer.notifyCustomer}
+          */
+        ) AS points WHERE points.navision_id = ${retailer.navisionId})`,
+      })
+      .where(
+        sql`EXISTS (
+          SELECT 1 FROM (
+            SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+            UNION
+            SELECT ${salesPointLedgerEntry.customerNo} AS navision_id
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+            UNION
+            SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
+            -- Uncomment the following if sales_points_claim_transfer is needed
+            /*
+            UNION
+            SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id
+            FROM ${salesPointsClaimTransfer}
+            WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
+              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+              AND ${salesPointsClaimTransfer.lineType} = 'Header'
+              AND ${salesPointsClaimTransfer.status} = 'Submitted'
+            UNION
+            SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id
+            FROM ${salesPointsClaimTransfer}
+            WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
+              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+              AND ${salesPointsClaimTransfer.lineType} = 'Header'
+              AND ${salesPointsClaimTransfer.status} = 'Submitted'
+            UNION
+            SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id
+            FROM ${salesPointsClaimTransfer}
+            WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
+              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+              AND ${salesPointsClaimTransfer.lineType} = 'Header'
+              AND ${salesPointsClaimTransfer.status} = 'Submitted'
+            */
+          ) AS combined WHERE combined.navision_id = ${retailer.navisionId}
+        )`
+      );
+
+    console.log('Retailer update rows affected:', retailerUpdateResult.rowCount);
+    if (retailerUpdateResult.rowCount === 0) {
+      console.warn('No retailers updated. Check navision_id matches and data in sales_point_ledger_entry.');
+    }
+
+    // Step 4: Check userId mappings
+    console.log('Checking userId mappings...');
+    const retailerUserIds = await db
+      .select({ userId: retailer.userId, navisionId: retailer.navisionId })
+      .from(retailer);
+    console.log('Retailer userIds:', retailerUserIds);
+
+    const userMasterIds = await db
+      .select({ userId: userMaster.userId })
+      .from(userMaster);
+    console.log('UserMaster userIds:', userMasterIds.map(u => u.userId));
+
+    const matchingUserIds = retailerUserIds.filter(r => userMasterIds.some(u => u.userId === r.userId));
+    console.log('Matching userIds:', matchingUserIds);
+    if (matchingUserIds.length === 0) {
+      console.warn('No matching userIds found. User_master update will not occur.');
+    }
+
+    // Step 5: Update user_master.redeemedPoints
+    console.log('Updating user_master redeemedPoints...');
+    const userMasterUpdateResult = await db
+      .update(userMaster)
+      .set({
+        redeemedPoints: sql`(SELECT ${retailer.consumedPoints} FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`,
+      })
+      .where(
+        sql`EXISTS (SELECT 1 FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`
+      );
+
+    console.log('UserMaster update rows affected:', userMasterUpdateResult.rowCount);
+    if (userMasterUpdateResult.rowCount === 0) {
+      console.warn('No user_master records updated. Check retailer.userId to user_master.userId mappings.');
+    }
+
+    console.log('Successfully synced points and updated retailer and user_master');
+    return { mergedPoints };
+  } catch (error) {
+    console.error('Error syncing retailer navision IDs:', error.stack);
+    throw new Error(`Failed to sync retailer navision IDs: ${error.message}`);
+  }
+}
+
+async onboardSalesPerson(){
+    try {
+         const sales = await db.select().from(navisionSalespersonList).where(eq(navisionSalespersonList.onboarded,false))
+    for await (let s of sales){
+        await db.transaction(async (tx)=>{
+
+           const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).returning()
+            await tx.insert(salesperson).values({userId:entry.values['userId'],salespersonName:s.name,state:s.state,pinCode:s.postCode,mobileNumber:s.whatsappMobileNumber,address:s.address,address2:s.address2,city:s.city,navisionId:s.code})
+            await db.update(navisionSalespersonList).set({onboarded:true}).where(eq(navisionSalespersonList.code,s.code))
+        })
+    }
+    } catch (error) {
+        console.log(error)
+    }
+   
+}
+async  syncRedemptionRequest() {
+  try {
+    const query = sql`
+      INSERT INTO redemption_request (
+        redemption_id,
+        user_id,
+        distributor_id,
+        method,
+        points_redeemed,
+        points_value,
+        monetary_value,
+        request_date,
+        status,
+        payment_cleared,
+        fulfillment_details,
+        created_at,
+        updated_at,
+        delivery_address,
+        quantity,
+        reward,
+        reward_id,
+        navision_id,
+        retailer_code,
+        distributor_code,
+        document_no
+      )
+      SELECT 
+        CONCAT('RED-', r.document_no) AS redemption_id,
+        COALESCE(
+          (SELECT um.user_id FROM retailer um WHERE um.navision_id = NULLIF(s.retailer_no, '') LIMIT 1),
+          (SELECT um.user_id FROM retailer um WHERE um.navision_id = NULLIF(s.customer_no, '') LIMIT 1),
+          (SELECT um.user_id FROM retailer um WHERE um.navision_id = NULLIF(s.notify_customer_no, '') LIMIT 1)
+        ) AS user_id,
+        (SELECT d.distributor_id FROM distributor d WHERE d.navision_id = s.agent_code LIMIT 1) AS distributor_id,
+        s.document_type AS method,
+        ABS(s.sales_points) AS points_redeemed,
+        ABS(s.sales_points) AS points_value,
+        NULL AS monetary_value, -- Provide a value for monetary_value
+        r.entry_date AS request_date,
+        COALESCE(r.status, 'pending') AS status,
+        FALSE AS payment_cleared,
+        r.courier_name AS fulfillment_details,
+        CURRENT_TIMESTAMP AS created_at,
+        CURRENT_TIMESTAMP AS updated_at,
+        NULL AS delivery_address,
+        r.qty AS quantity,
+        r.gift_article_name AS reward,
+        NULL AS reward_id,
+        r.entry_no AS navision_id,
+        COALESCE(NULLIF(s.retailer_no, ''), NULLIF(s.customer_no, ''), NULLIF(s.notify_customer_no, '')) AS retailer_code,
+        s.agent_code AS distributor_code,
+        r.document_no AS document_no
+      FROM 
+        retailer_reward_point_entry r
+      INNER JOIN 
+        sales_point_ledger_entry s
+      ON 
+        r.document_no = s.document_no
+      ON CONFLICT ON CONSTRAINT entry_no_navision_id
+      DO NOTHING
+      RETURNING *;
+    `;
+
+    const result = await db.execute(query);
+    console.log('Inserted Records:', result.rows);
+    return result.rows;
+  } catch (error) {
+    console.error('Error piping data to redemption_request:', error);
+    throw error;
+  } finally {
+    //await pool.end(); // Close the database connection
   }
 }
 
