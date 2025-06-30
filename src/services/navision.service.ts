@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import {  and, eq, isNotNull, ne, sql, sum } from 'drizzle-orm';
 import { PoolClient } from 'pg';
+import { GlobalState } from '../configs/config';
     type VendorInsert = typeof navisionVendorMaster.$inferInsert;
     type RetailerInsert = typeof navisionRetailMaster.$inferInsert;
     type CustomerInsert = typeof navisionCustomerMaster.$inferInsert;
@@ -119,7 +120,14 @@ class NavisionService {
   
   constructor() {
 
+
+
     dotenv.config(); // Ensure dotenv is configured to load environment variables
+
+
+    this.makeRequest(`${process.env.NAVISION_URL}/VendorList_LoyaltyApp`, 'GET').then(result=>GlobalState.schemeFilter = result.value[0].Scheme_for_Invoice || '').catch(error=>{
+      console.error('Error fetching initial scheme filter:', error.message);
+    });
   }
    private hasKey(object, key) {
     return object?.[key] !== undefined;
@@ -1161,7 +1169,7 @@ async  onboardAllRetailers() {
       pin_code: c.postCode,
       city: c.city,
       state: c.stateCode,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
       navision_id:c.no,
       device_details: null,
@@ -1182,7 +1190,7 @@ async  onboardAllRetailers() {
       pin_code: n.postCode,
       city: n.city,
       state: n.stateCode,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
       navision_id:n.no,
       device_details: null,
@@ -1203,7 +1211,7 @@ async  onboardAllRetailers() {
       pin_code: r.pinCode,
       city: r.city,
       state: r.state,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
       navision_id:r.no,
       device_details: null,
@@ -1241,7 +1249,12 @@ async  mapDist(){
 }
 
 
+   
+
 async  totalPoints() {
+
+  const INVOICE_SCHEME = 'SCHEME 1'
+   const TRANSFER_CLAIM = 'SCHEME 1'
   try {
     const retailresult = await db
       .select({
@@ -1252,7 +1265,8 @@ async  totalPoints() {
       .where(
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
-          isNotNull(salesPointLedgerEntry.retailerNo)
+          isNotNull(salesPointLedgerEntry.retailerNo),
+          eq(salesPointLedgerEntry.scheme, INVOICE_SCHEME)
         )
       )
       .groupBy(salesPointLedgerEntry.retailerNo);
@@ -1266,7 +1280,8 @@ async  totalPoints() {
       .where(
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
-          isNotNull(salesPointLedgerEntry.customerNo)
+          isNotNull(salesPointLedgerEntry.customerNo),
+          eq(salesPointLedgerEntry.scheme, INVOICE_SCHEME)
         )
       )
       .groupBy(salesPointLedgerEntry.customerNo);
@@ -1281,7 +1296,8 @@ async  totalPoints() {
       .where(
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
-          isNotNull(salesPointLedgerEntry.notifyCustomerNo)
+          isNotNull(salesPointLedgerEntry.notifyCustomerNo),
+          eq(salesPointLedgerEntry.scheme,INVOICE_SCHEME )
         )
       )
       .groupBy(salesPointLedgerEntry.notifyCustomerNo);
@@ -1315,9 +1331,11 @@ await db
 
 
 
-async  claimPoints() {
+async claimPoints() {
   try {
-    // Step 1: Merge points from sales_point_ledger_entry (and optionally sales_points_claim_transfer)
+    const INVOICE_SCHEME = 'SCHEME 1';
+
+    // Step 1: Merge points from sales_point_ledger_entry and sales_points_claim_transfer
     console.log('Fetching merged points...');
     const mergedPointsQuery = await db
       .select({
@@ -1325,126 +1343,77 @@ async  claimPoints() {
         totalPoints: sql`ABS(SUM(total_points))`.as('totalPoints'),
       })
       .from(
-        sql`(SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
-             FROM ${salesPointLedgerEntry}
-             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
-               AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
-             GROUP BY ${salesPointLedgerEntry.retailerNo}
-             UNION ALL
-             SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
-             FROM ${salesPointLedgerEntry}
-             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
-               AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
-             GROUP BY ${salesPointLedgerEntry.customerNo}
-             UNION ALL
-             SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
-             FROM ${salesPointLedgerEntry}
-             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
-               AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
-             GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
-             -- Uncomment the following if sales_points_claim_transfer is needed
-             /*
-             UNION ALL
-             SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.retailerNo}
-             UNION ALL
-             SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.customerNo}
-             UNION ALL
-             SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.notifyCustomer}
-             */
-             ) AS combined`
-      )
-      .groupBy(sql`navision_id`);
-const mergedPoints: MergedPoint[] = mergedPointsQuery as unknown as MergedPoint[];
-    console.log('Merged points:', JSON.stringify(mergedPoints, null, 2));
-    if (!mergedPoints || mergedPoints.length === 0) {
-      console.warn('No merged points found. Check source data in sales_point_ledger_entry.');
-      return { mergedPoints: [] };
-    }
-
-    // Step 2: Check navision_id matches in retailer table
-    console.log('Checking navision_id matches in retailer table...');
-    const retailerIds = await db
-      .select({ navisionId: retailer.navisionId })
-      .from(retailer);
-    console.log('Retailer navisionIds:', retailerIds.map(r => r.navisionId));
-
-    const navisionIds = mergedPoints.map(p => p.id);
-    console.log('Navision IDs from mergedPoints:', navisionIds);
-    const matchingIds = retailerIds.filter(r => navisionIds.includes(r.navisionId));
-    console.log('Matching navisionIds:', matchingIds.map(r => r.navisionId));
-    if (matchingIds.length === 0) {
-      console.warn('No matching navisionIds found. Retailer update will not occur.');
-    }
-
-    // Step 3: Update retailer.consumedPoints
-    console.log('Updating retailer consumedPoints...');
-    const retailerUpdateResult = await db
-      .update(retailer)
-      .set({
-        consumedPoints: sql`(SELECT ABS(SUM(total_points)) FROM (
+        sql`
+        (
           SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
           FROM ${salesPointLedgerEntry}
           WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
             AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+            AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
           GROUP BY ${salesPointLedgerEntry.retailerNo}
+
           UNION ALL
+
           SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
           FROM ${salesPointLedgerEntry}
           WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
             AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+            AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
           GROUP BY ${salesPointLedgerEntry.customerNo}
+
           UNION ALL
+
           SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
           FROM ${salesPointLedgerEntry}
           WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
             AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
+            AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
           GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
-          -- Uncomment the following if sales_points_claim_transfer is needed
-          /*
-          UNION ALL
-          SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-          FROM ${salesPointsClaimTransfer}
-          WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
-            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-            AND ${salesPointsClaimTransfer.lineType} = 'Header'
-            AND ${salesPointsClaimTransfer.status} = 'Submitted'
-          GROUP BY ${salesPointsClaimTransfer.retailerNo}
-          UNION ALL
-          SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-          FROM ${salesPointsClaimTransfer}
-          WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
-            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-            AND ${salesPointsClaimTransfer.lineType} = 'Header'
-            AND ${salesPointsClaimTransfer.status} = 'Submitted'
-          GROUP BY ${salesPointsClaimTransfer.customerNo}
-          UNION ALL
-          SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-          FROM ${salesPointsClaimTransfer}
-          WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
-            AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-            AND ${salesPointsClaimTransfer.lineType} = 'Header'
-            AND ${salesPointsClaimTransfer.status} = 'Submitted'
-          GROUP BY ${salesPointsClaimTransfer.notifyCustomer}
-          */
-        ) AS points WHERE points.navision_id = ${retailer.navisionId})`,
+        ) AS combined
+      `
+      )
+      .groupBy(sql`navision_id`);
+
+    const mergedPoints: MergedPoint[] = mergedPointsQuery as unknown as MergedPoint[];
+    console.log('Merged points:', JSON.stringify(mergedPoints, null, 2));
+    if (!mergedPoints.length) {
+      return { mergedPoints: [] };
+    }
+
+    // Step 2: Update retailer.consumedPoints
+    console.log('Updating retailer consumedPoints...');
+    const retailerUpdateResult = await db
+      .update(retailer)
+      .set({
+        consumedPoints: sql`(
+          SELECT ABS(SUM(total_points)) FROM (
+            SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
+            GROUP BY ${salesPointLedgerEntry.retailerNo}
+
+            UNION ALL
+
+            SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
+            GROUP BY ${salesPointLedgerEntry.customerNo}
+
+            UNION ALL
+
+            SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+            FROM ${salesPointLedgerEntry}
+            WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+              AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
+            GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
+          ) AS points
+          WHERE points.navision_id = ${retailer.navisionId}
+        )`,
       })
       .where(
         sql`EXISTS (
@@ -1453,90 +1422,47 @@ const mergedPoints: MergedPoint[] = mergedPointsQuery as unknown as MergedPoint[
             FROM ${salesPointLedgerEntry}
             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
               AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
             UNION
             SELECT ${salesPointLedgerEntry.customerNo} AS navision_id
             FROM ${salesPointLedgerEntry}
             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
               AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
             UNION
             SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id
             FROM ${salesPointLedgerEntry}
             WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
               AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
-            -- Uncomment the following if sales_points_claim_transfer is needed
-            /*
-            UNION
-            SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id
-            FROM ${salesPointsClaimTransfer}
-            WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
-              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-              AND ${salesPointsClaimTransfer.lineType} = 'Header'
-              AND ${salesPointsClaimTransfer.status} = 'Submitted'
-            UNION
-            SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id
-            FROM ${salesPointsClaimTransfer}
-            WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
-              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-              AND ${salesPointsClaimTransfer.lineType} = 'Header'
-              AND ${salesPointsClaimTransfer.status} = 'Submitted'
-            UNION
-            SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id
-            FROM ${salesPointsClaimTransfer}
-            WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
-              AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-              AND ${salesPointsClaimTransfer.lineType} = 'Header'
-              AND ${salesPointsClaimTransfer.status} = 'Submitted'
-            */
+              AND ${salesPointLedgerEntry.scheme} = ${sql.param(INVOICE_SCHEME)}
           ) AS combined WHERE combined.navision_id = ${retailer.navisionId}
         )`
       );
 
-    console.log('Retailer update rows affected:', retailerUpdateResult.rowCount);
-    if (retailerUpdateResult.rowCount === 0) {
-      console.warn('No retailers updated. Check navision_id matches and data in sales_point_ledger_entry.');
-    }
+    console.log('Retailer updated:', retailerUpdateResult.rowCount);
 
-    // Step 4: Check userId mappings
-    console.log('Checking userId mappings...');
-    const retailerUserIds = await db
-      .select({ userId: retailer.userId, navisionId: retailer.navisionId })
-      .from(retailer);
-    console.log('Retailer userIds:', retailerUserIds);
-
-    const userMasterIds = await db
-      .select({ userId: userMaster.userId })
-      .from(userMaster);
-    console.log('UserMaster userIds:', userMasterIds.map(u => u.userId));
-
-    const matchingUserIds = retailerUserIds.filter(r => userMasterIds.some(u => u.userId === r.userId));
-    console.log('Matching userIds:', matchingUserIds);
-    if (matchingUserIds.length === 0) {
-      console.warn('No matching userIds found. User_master update will not occur.');
-    }
-
-    // Step 5: Update user_master.redeemedPoints
+    // Step 3: Update user_master.redeemedPoints
     console.log('Updating user_master redeemedPoints...');
     const userMasterUpdateResult = await db
       .update(userMaster)
       .set({
-        redeemedPoints: sql`(SELECT ${retailer.consumedPoints} FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`,
+        redeemedPoints: sql`(
+          SELECT ${retailer.consumedPoints} FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId}
+        )`,
       })
       .where(
         sql`EXISTS (SELECT 1 FROM ${retailer} WHERE ${retailer.userId} = ${userMaster.userId})`
       );
 
-    console.log('UserMaster update rows affected:', userMasterUpdateResult.rowCount);
-    if (userMasterUpdateResult.rowCount === 0) {
-      console.warn('No user_master records updated. Check retailer.userId to user_master.userId mappings.');
-    }
+    console.log('User master updated:', userMasterUpdateResult.rowCount);
 
-    console.log('Successfully synced points and updated retailer and user_master');
     return { mergedPoints };
   } catch (error) {
-    console.error('Error syncing retailer navision IDs:', error.stack);
+    console.error('Error syncing retailer navision IDs:', error);
     throw new Error(`Failed to sync retailer navision IDs: ${error.message}`);
   }
 }
+
 
 async onboardSalesPerson(){
     try {

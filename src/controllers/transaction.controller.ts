@@ -14,8 +14,10 @@ this.transactionRepository = new TransactionRepository()
     async getPassbook(req,res){
         
         try {
-            console.log(this.transactionRepository)
- const result = await this.transactionRepository.getPassbook(1)
+
+            const userId = req.user.userId;
+            
+ const result = await this.transactionRepository.getPassbook(userId)
         res.json({success:true,data:result})
 
         }catch(error){

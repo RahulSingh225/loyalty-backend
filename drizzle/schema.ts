@@ -279,6 +279,38 @@ export const pointAllocationLog = pgTable("point_allocation_log", {
 		}),
 ]);
 
+export const redemptionRequest = pgTable("redemption_request", {
+	requestId: serial("request_id").primaryKey().notNull(),
+	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
+	userId: integer("user_id"),
+	distributorId: integer("distributor_id"),
+	method: varchar({ length: 50 }).notNull(),
+	pointsRedeemed: numeric("points_redeemed").notNull(),
+	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
+	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
+	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	status: varchar({ length: 100 }).default('pending'),
+	paymentCleared: boolean("payment_cleared").default(false),
+	fulfillmentDetails: text("fulfillment_details"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	deliveryAddress: text("delivery_address"),
+	quantity: numeric(),
+	reward: text(),
+	rewardId: integer("reward_id"),
+	navisionId: text("navision_id"),
+	retailerCode: text("retailer_code"),
+	distributorCode: text("distributor_code"),
+	documentNo: text("document_no"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [userMaster.userId],
+			name: "redemption_request_user_id_fkey"
+		}),
+	unique("entry_no_navision_id").on(table.navisionId),
+]);
+
 export const permissions = pgTable("permissions", {
 	permissionId: serial("permission_id").primaryKey().notNull(),
 	permissionName: varchar("permission_name", { length: 100 }).notNull(),
@@ -296,34 +328,6 @@ export const schemes = pgTable("schemes", {
 	endDate: date("end_date"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
-
-export const redemptionRequest = pgTable("redemption_request", {
-	requestId: serial("request_id").primaryKey().notNull(),
-	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
-	userId: integer("user_id").notNull(),
-	distributorId: integer("distributor_id"),
-	method: varchar({ length: 50 }).notNull(),
-	pointsRedeemed: numeric("points_redeemed").notNull(),
-	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
-	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
-	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	status: varchar({ length: 100 }).default('pending'),
-	paymentCleared: boolean("payment_cleared").default(false),
-	fulfillmentDetails: text("fulfillment_details"),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	deliveryAddress: text("delivery_address"),
-	quantity: numeric(),
-	reward: text(),
-	rewardId: integer("reward_id"),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [userMaster.userId],
-			name: "redemption_request_user_id_fkey"
-		}),
-	unique("redemption_request_redemption_id_key").on(table.redemptionId),
-]);
 
 export const transaction = pgTable("transaction", {
 	transactionId: serial("transaction_id").primaryKey().notNull(),

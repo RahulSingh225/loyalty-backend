@@ -109,7 +109,10 @@ class App {
     //  await nav.syncSalesClaimTransfer()
     // await nav.syncSalesPersonList()
      //await nav.syncRetailerReward();
-     await nav.syncRedemptionRequest();
+     //await nav.syncRedemptionRequest();
+    //await nav.totalPoints();
+    await nav.claimPoints();
+
 
     res.send("Donee")
 
