@@ -32,25 +32,25 @@ class EarningRepository {
   //   return result;
   // }
 
-  async pointsTransfer(payload:any) {
-    const { userId, amount } = payload;
-    const result = await db.select().from(userMaster).where(eq(userMaster.userId, userId));
-    if (result.length === 0) {
-      throw new Error("User not found");
-    }
-    if (result[0].balancePoints < amount) {
-      throw new Error("Insufficient balance for transfer");
-    }
+  // async pointsTransfer(payload:any) {
+  //   const { userId, amount } = payload;
+  //   const result = await db.select().from(userMaster).where(eq(userMaster.userId, userId));
+  //   if (result.length === 0) {
+  //     throw new Error("User not found");
+  //   }
+  //   if (result[0].balancePoints < amount) {
+  //     throw new Error("Insufficient balance for transfer");
+  //   }
     
-    // Assuming you have a pointsTransfer table to log transfers
-    const transferResult = await db.insert(pointAllocationLog).values({
-      userId: Number(userId),
-      amount: amount,
-      status: "completed",
-    }).returning();
+  //   // Assuming you have a pointsTransfer table to log transfers
+  //   const transferResult = await db.insert(pointAllocationLog).values({
+  //     userId: Number(userId),
+  //     amount: amount,
+  //     status: "completed",
+  //   }).returning();
     
-    return transferResult[0];
-  }
+  //   return transferResult[0];
+  // }
 }
 
 export default EarningRepository;
