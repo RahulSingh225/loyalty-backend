@@ -18,17 +18,17 @@ interface FirebaseConfig {
 class FirebaseService {
   private storage: storage.Storage;
 
-  constructor(config: FirebaseConfig) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: config.projectId,
-        privateKey: config.privateKey.replace(/\\n/g, '\n'),
-        clientEmail: config.clientEmail
-      }),
-      //storageBucket: config.storageBucket
-    });
-    //this.storage = admin.storage();
-  }
+  // constructor(config: FirebaseConfig) {
+  //   admin.initializeApp({
+  //     credential: admin.credential.cert({
+  //       projectId: config.projectId,
+  //       privateKey: config.privateKey.replace(/\\n/g, '\n'),
+  //       clientEmail: config.clientEmail
+  //     }),
+  //     //storageBucket: config.storageBucket
+  //   });
+  //   //this.storage = admin.storage();
+  // }
 
   getStorage(): storage.Storage {
     return this.storage;
@@ -50,6 +50,6 @@ class FirebaseService {
 }
 
 
+export const firebaseService = new FirebaseService();
 
-
-export const firebaseService = new FirebaseService(FIREBASE_CONFIG as FirebaseConfig);
+//export const firebaseService = new FirebaseService(FIREBASE_CONFIG as FirebaseConfig);

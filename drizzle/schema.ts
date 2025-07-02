@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, unique, varchar, boolean, timestamp, foreignKey, date, jsonb, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, serial, integer, text, numeric, unique, varchar, boolean, timestamp, foreignKey, json, date, jsonb, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -9,29 +9,6 @@ export const schemedetails = pgTable("schemedetails", {
 	groupName: text("group_name").notNull(),
 	multiplier: numeric().notNull(),
 });
-
-export const salesPointLedgerEntry = pgTable("sales_point_ledger_entry", {
-	entryNo: integer("entry_no"),
-	documentType: varchar("document_type", { length: 50 }),
-	documentNo: varchar("document_no", { length: 50 }),
-	customerNo: varchar("customer_no", { length: 50 }),
-	customerName: varchar("customer_name", { length: 100 }),
-	notifyCustomerNo: varchar("notify_customer_no", { length: 50 }),
-	notifyCustomerName: varchar("notify_customer_name", { length: 100 }),
-	agentCode: varchar("agent_code", { length: 50 }),
-	agentName: varchar("agent_name", { length: 100 }),
-	retailerNo: varchar("retailer_no", { length: 50 }),
-	retailerName: varchar("retailer_name", { length: 100 }),
-	scheme: varchar({ length: 50 }),
-	salesPoints: numeric("sales_points"),
-	customerIsAgent: boolean("customer_is_agent"),
-	etag: varchar({ length: 100 }),
-	createdAt: timestamp({ withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-	quantity: numeric(),
-	itemGroup: text("item_group"),
-}, (table) => [
-	unique("sales_point_ledger_entry_entry_no_key").on(table.entryNo),
-]);
 
 export const salesPointsClaimTransfer = pgTable("sales_points_claim_transfer", {
 	documentNo: varchar("document_no", { length: 50 }),
@@ -60,6 +37,29 @@ export const salesPointsClaimTransfer = pgTable("sales_points_claim_transfer", {
 	docLineNo: text("doc_line_no").notNull(),
 }, (table) => [
 	unique("document_line_no").on(table.docLineNo),
+]);
+
+export const salesPointLedgerEntry = pgTable("sales_point_ledger_entry", {
+	entryNo: integer("entry_no"),
+	documentType: varchar("document_type", { length: 50 }),
+	documentNo: varchar("document_no", { length: 50 }),
+	customerNo: varchar("customer_no", { length: 50 }),
+	customerName: varchar("customer_name", { length: 100 }),
+	notifyCustomerNo: varchar("notify_customer_no", { length: 50 }),
+	notifyCustomerName: varchar("notify_customer_name", { length: 100 }),
+	agentCode: varchar("agent_code", { length: 50 }),
+	agentName: varchar("agent_name", { length: 100 }),
+	retailerNo: varchar("retailer_no", { length: 50 }),
+	retailerName: varchar("retailer_name", { length: 100 }),
+	scheme: varchar({ length: 50 }),
+	salesPoints: numeric("sales_points"),
+	customerIsAgent: boolean("customer_is_agent"),
+	etag: varchar({ length: 100 }),
+	createdAt: timestamp({ withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	quantity: numeric(),
+	itemGroup: text("item_group"),
+}, (table) => [
+	unique("sales_point_ledger_entry_entry_no_key").on(table.entryNo),
 ]);
 
 export const navisionSalespersonList = pgTable("navision_salesperson_list", {
@@ -252,36 +252,6 @@ export const navisionVendorMaster = pgTable("navision_vendor_master", {
 	unique("vendor_unique").on(table.no),
 ]);
 
-export const pointAllocationLog = pgTable("point_allocation_log", {
-	allocationId: serial("allocation_id").primaryKey().notNull(),
-	invoiceId: integer("invoice_id").notNull(),
-	sourceUserId: integer("source_user_id"),
-	targetUserId: integer("target_user_id").notNull(),
-	pointsAllocated: integer("points_allocated").notNull(),
-	allocationDate: timestamp("allocation_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	allocationMethod: varchar("allocation_method", { length: 50 }).notNull(),
-	status: varchar({ length: 50 }).default('success'),
-	adminApprovedBy: integer("admin_approved_by"),
-	adminApprovalDate: timestamp("admin_approval_date", { mode: 'string' }),
-	description: text(),
-}, (table) => [
-	foreignKey({
-			columns: [table.adminApprovedBy],
-			foreignColumns: [userMaster.userId],
-			name: "point_allocation_log_admin_approved_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.sourceUserId],
-			foreignColumns: [userMaster.userId],
-			name: "point_allocation_log_source_user_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.targetUserId],
-			foreignColumns: [userMaster.userId],
-			name: "point_allocation_log_target_user_id_fkey"
-		}),
-]);
-
 export const redemptionRequest = pgTable("redemption_request", {
 	requestId: serial("request_id").primaryKey().notNull(),
 	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
@@ -312,6 +282,37 @@ export const redemptionRequest = pgTable("redemption_request", {
 			name: "redemption_request_user_id_fkey"
 		}),
 	unique("entry_no_navision_id").on(table.navisionId),
+]);
+
+export const pointAllocationLog = pgTable("point_allocation_log", {
+	allocationId: serial("allocation_id").primaryKey().notNull(),
+	invoiceId: integer("invoice_id"),
+	sourceUserId: integer("source_user_id"),
+	targetUserId: integer("target_user_id").notNull(),
+	pointsAllocated: integer("points_allocated").notNull(),
+	allocationDate: timestamp("allocation_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	allocationMethod: varchar("allocation_method", { length: 50 }).notNull(),
+	status: varchar({ length: 50 }).default('success'),
+	adminApprovedBy: integer("admin_approved_by"),
+	adminApprovalDate: timestamp("admin_approval_date", { mode: 'string' }),
+	description: text(),
+	details: json().array(),
+}, (table) => [
+	foreignKey({
+			columns: [table.adminApprovedBy],
+			foreignColumns: [userMaster.userId],
+			name: "point_allocation_log_admin_approved_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.sourceUserId],
+			foreignColumns: [userMaster.userId],
+			name: "point_allocation_log_source_user_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.targetUserId],
+			foreignColumns: [userMaster.userId],
+			name: "point_allocation_log_target_user_id_fkey"
+		}),
 ]);
 
 export const permissions = pgTable("permissions", {

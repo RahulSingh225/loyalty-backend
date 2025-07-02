@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { userMaster, distributor, pointAllocationLog, redemptionRequest, transaction, notificationLog, retailer, salesperson, userRoles, permissions, rolePermissions } from "./schema";
+import { userMaster, distributor, redemptionRequest, pointAllocationLog, transaction, notificationLog, retailer, salesperson, userRoles, permissions, rolePermissions } from "./schema";
 
 export const distributorRelations = relations(distributor, ({one, many}) => ({
 	userMaster: one(userMaster, {
@@ -12,6 +12,7 @@ export const distributorRelations = relations(distributor, ({one, many}) => ({
 
 export const userMasterRelations = relations(userMaster, ({one, many}) => ({
 	distributors: many(distributor),
+	redemptionRequests: many(redemptionRequest),
 	pointAllocationLogs_adminApprovedBy: many(pointAllocationLog, {
 		relationName: "pointAllocationLog_adminApprovedBy_userMaster_userId"
 	}),
@@ -21,7 +22,6 @@ export const userMasterRelations = relations(userMaster, ({one, many}) => ({
 	pointAllocationLogs_targetUserId: many(pointAllocationLog, {
 		relationName: "pointAllocationLog_targetUserId_userMaster_userId"
 	}),
-	redemptionRequests: many(redemptionRequest),
 	transactions: many(transaction),
 	notificationLogs: many(notificationLog),
 	retailers: many(retailer),
@@ -29,6 +29,13 @@ export const userMasterRelations = relations(userMaster, ({one, many}) => ({
 	userRole: one(userRoles, {
 		fields: [userMaster.roleId],
 		references: [userRoles.roleId]
+	}),
+}));
+
+export const redemptionRequestRelations = relations(redemptionRequest, ({one}) => ({
+	userMaster: one(userMaster, {
+		fields: [redemptionRequest.userId],
+		references: [userMaster.userId]
 	}),
 }));
 
@@ -47,13 +54,6 @@ export const pointAllocationLogRelations = relations(pointAllocationLog, ({one})
 		fields: [pointAllocationLog.targetUserId],
 		references: [userMaster.userId],
 		relationName: "pointAllocationLog_targetUserId_userMaster_userId"
-	}),
-}));
-
-export const redemptionRequestRelations = relations(redemptionRequest, ({one}) => ({
-	userMaster: one(userMaster, {
-		fields: [redemptionRequest.userId],
-		references: [userMaster.userId]
 	}),
 }));
 

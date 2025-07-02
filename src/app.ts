@@ -105,8 +105,8 @@ class App {
     const nav = new NavisionService();
     //await nav.syncCustomer();
     //await nav.syncRetail()
-    // await nav.syncSalesLedger()
-      await nav.syncSalesClaimTransfer()
+     await nav.syncSalesLedger()
+     // await nav.syncSalesClaimTransfer()
     // await nav.syncSalesPersonList()
      //await nav.syncRetailerReward();
      //await nav.syncRedemptionRequest();

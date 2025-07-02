@@ -1,14 +1,14 @@
 import { earningRepository } from "../repository";
 import {Request, Response} from "express";
 class EarningController {
-  // async initiateEarning(req: Request, res: Response) {
-  //   try {
-  //     const result = await earningRepository.initiateEarning(req.body);
-  //     return res.status(201).json(result);
-  //   } catch (error) {
-  //     return res.status(500).json(error.message);
-  //   }
-  // }
+  async initiateEarning(req: Request, res: Response) {
+    try {
+      const result = await earningRepository.pointsTransfer(req.body);
+      return res.status(201).json(result);
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+  }
 
   // async getEarnings(req, res: Response) {
   //   try {

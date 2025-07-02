@@ -2,6 +2,7 @@
 import { and, eq, isNotNull, ne, sql, sum } from "drizzle-orm";
 import { userMaster,retailer, navisionRetailMaster, navisionCustomerMaster, navisionNotifyCustomer, distributor, salesPointLedgerEntry, salesPointsClaimTransfer } from "./db/schema";
 import { db } from "./services/db.service";
+import { GlobalState } from "./configs/config";
 
 interface MergedPoint {
   id: string; // Adjust type if navision_id is a number
@@ -111,33 +112,65 @@ async function claimPoints() {
              WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
                AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
              GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
-             -- Uncomment the following if sales_points_claim_transfer is needed
-             /*
+             
              UNION ALL
-             SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.retailerNo}
+             SELECT ${salesPointsClaimTransfer.retailerNo} AS navision_id, 
+       SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+FROM ${salesPointsClaimTransfer}
+WHERE ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
+  AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+  AND ${salesPointsClaimTransfer.status} = 'Submitted'
+  AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  AND ${salesPointsClaimTransfer.documentNo} = (
+    SELECT ${salesPointsClaimTransfer.documentNo}
+    FROM ${salesPointsClaimTransfer}
+    WHERE ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+      AND ${salesPointsClaimTransfer.status} = 'Submitted'
+      AND ${salesPointsClaimTransfer.lineType} = 'Header'
+      AND ${salesPointsClaimTransfer.retailerNo} IS NOT NULL
+      AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  )
+GROUP BY ${salesPointsClaimTransfer.retailerNo};
              UNION ALL
-             SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.customerNo}
+             SELECT ${salesPointsClaimTransfer.customerNo} AS navision_id, 
+       SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+FROM ${salesPointsClaimTransfer}
+WHERE ${salesPointsClaimTransfer.customerNo} IS NOT NULL
+  AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+  
+  AND ${salesPointsClaimTransfer.status} = 'Submitted'
+  AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  AND ${salesPointsClaimTransfer.documentNo} = (
+    SELECT ${salesPointsClaimTransfer.documentNo}
+    FROM ${salesPointsClaimTransfer}
+    WHERE ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+      AND ${salesPointsClaimTransfer.status} = 'Submitted'
+      AND ${salesPointsClaimTransfer.lineType} = 'Header'
+      AND ${salesPointsClaimTransfer.customerNo} IS NOT NULL
+      AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  )
+GROUP BY ${salesPointsClaimTransfer.customerNo};
              UNION ALL
-             SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
-             FROM ${salesPointsClaimTransfer}
-             WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
-               AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
-               AND ${salesPointsClaimTransfer.lineType} = 'Header'
-               AND ${salesPointsClaimTransfer.status} = 'Submitted'
-             GROUP BY ${salesPointsClaimTransfer.notifyCustomer}
-             */
+
+             SELECT ${salesPointsClaimTransfer.notifyCustomer} AS navision_id, 
+       SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)) AS total_points
+FROM ${salesPointsClaimTransfer}
+WHERE ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
+  AND ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+  
+  AND ${salesPointsClaimTransfer.status} = 'Submitted'
+  AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  AND ${salesPointsClaimTransfer.documentNo} = (
+    SELECT ${salesPointsClaimTransfer.documentNo}
+    FROM ${salesPointsClaimTransfer}
+    WHERE ${salesPointsClaimTransfer.entryType} = 'Points Claim'
+      AND ${salesPointsClaimTransfer.status} = 'Submitted'
+      AND ${salesPointsClaimTransfer.lineType} = 'Header'
+      AND ${salesPointsClaimTransfer.notifyCustomer} IS NOT NULL
+      AND ${salesPointsClaimTransfer.scheme} = ${GlobalState.schemeFilter}
+  )
+GROUP BY ${salesPointsClaimTransfer.notifyCustomer};
+
              ) AS combined`
       )
       .groupBy(sql`navision_id`);

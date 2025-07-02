@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { pointAllocationLog, userMaster } from "../db/schema";
 import { db } from "../services/db.service";
 
@@ -32,26 +32,33 @@ class EarningRepository {
   //   return result;
   // }
 
-  // async pointsTransfer(payload:any) {
-  //   const { userId, amount } = payload;
-  //   const result = await db.select().from(userMaster).where(eq(userMaster.userId, userId));
-  //   if (result.length === 0) {
-  //     throw new Error("User not found");
-  //   }
-  //   if (result[0].balancePoints < amount) {
-  //     throw new Error("Insufficient balance for transfer");
-  //   }
+  async pointsTransfer(payload:typeof pointAllocationLog.$inferInsert) {
+
+    const result = await db.select().from(userMaster).where(and(eq(userMaster.userId, payload.sourceUserId), eq(userMaster.userId, payload.targetUserId)));
+    if (result.length === 0) {
+      throw new Error("User not found");
+    }
+    if (Number(result[0].balancePoints) < Number(payload.pointsAllocated)) {
+      throw new Error("Insufficient balance for transfer");
+    }
     
-  //   // Assuming you have a pointsTransfer table to log transfers
-  //   const transferResult = await db.insert(pointAllocationLog).values({
-  //     sourceUserId: Number(userId),
-  //     targetUserId: Number(payload.targetUserId), // Assuming targetUserId is part of payload
-  //     amount: amount,
-  //     status: "completed",
-  //   }).returning();
-    
-  //   return transferResult[0];
-  // }
+    // Assuming you have a pointsTransfer table to log transfers
+    const transferResult = await db.insert(pointAllocationLog).values({
+      sourceUserId: payload.sourceUserId,
+      targetUserId: payload.targetUserId,
+      pointsAllocated: payload.pointsAllocated,
+      allocationMethod:'points_transfer',
+      details: payload.details,
+      status: "pending",
+    }).returning();
+
+    return transferResult[0];
+  }
 }
+
+
+
+
+    
 
 export default EarningRepository;
