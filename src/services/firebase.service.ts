@@ -1,11 +1,19 @@
 import admin, { storage } from 'firebase-admin';
+import { FIREBASE_CONFIG } from '../configs/config';
 
 interface FirebaseConfig {
-  projectId: string;
-  privateKey: string;
-  clientEmail: string;
-  storageBucket: string;
-}
+    type: string;
+    projectId: string;
+    privateKeyId: string;
+    privateKey: string;
+    clientEmail: string;
+    clientId: string;
+    authUri: string;
+    tokenUri: string;
+    authProviderCertUrl: string;
+    clientCertUrl: string;
+    universeDomain: string;
+} 
 
 class FirebaseService {
   private storage: storage.Storage;
@@ -17,9 +25,9 @@ class FirebaseService {
         privateKey: config.privateKey.replace(/\\n/g, '\n'),
         clientEmail: config.clientEmail
       }),
-      storageBucket: config.storageBucket
+      //storageBucket: config.storageBucket
     });
-    this.storage = admin.storage();
+    //this.storage = admin.storage();
   }
 
   getStorage(): storage.Storage {
@@ -44,4 +52,4 @@ class FirebaseService {
 
 
 
-export default FirebaseService;
+export const firebaseService = new FirebaseService(FIREBASE_CONFIG as FirebaseConfig);

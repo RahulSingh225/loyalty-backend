@@ -58,7 +58,6 @@ export class FileService {
 
       const signedUrl = this.s3.getSignedUrl("getObject", params);
 
-      console.log("Signed URL:", signedUrl);
       return signedUrl;
     } catch (error) {
       console.error("Error generating signed URL:", error);

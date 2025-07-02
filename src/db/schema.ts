@@ -56,9 +56,10 @@ export const salesPointsClaimTransfer = pgTable("sales_points_claim_transfer", {
 	qualityDesc: varchar("quality_desc", { length: 50 }),
 	multiplier: numeric({ precision: 20, scale:  2 }),
 	etag: varchar({ length: 100 }),
-	onboarded: timestamp({ withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	docLineNo: text("doc_line_no").notNull(),
 }, (table) => [
-	unique("sales_points_claim_transfer_line_no_key").on(table.lineNo),
+	unique("document_line_no").on(table.docLineNo),
 ]);
 
 export const navisionSalespersonList = pgTable("navision_salesperson_list", {
@@ -181,15 +182,6 @@ export const distributor = pgTable("distributor", {
 	unique("distributor_navision_id_key").on(table.navisionId),
 ]);
 
-export const gifts = pgTable("gifts", {
-	giftId: integer("gift_id").primaryKey().notNull(),
-	giftName: text("gift_name"),
-	imageUrl: text("image_url"),
-	uniqueId: text("unique_id"),
-	isActive: boolean("is_active"),
-	value: integer(),
-});
-
 export const mediaLinks = pgTable("media_links", {
 	linkId: serial("link_id").primaryKey().notNull(),
 	platformName: varchar("platform_name", { length: 100 }).notNull(),
@@ -200,6 +192,15 @@ export const mediaLinks = pgTable("media_links", {
 }, (table) => [
 	unique("media_links_platform_name_key").on(table.platformName),
 ]);
+
+export const gifts = pgTable("gifts", {
+	giftId: integer("gift_id").primaryKey().generatedAlwaysAsIdentity({ name: "gifts_gift_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 2147483647, cache: 1 }),
+	giftName: text("gift_name"),
+	imageUrl: text("image_url"),
+	uniqueId: text("unique_id"),
+	isActive: boolean("is_active"),
+	value: integer(),
+});
 
 export const navisionCustomerMaster = pgTable("navision_customer_master", {
 	no: varchar("No", { length: 20 }).primaryKey().notNull(),

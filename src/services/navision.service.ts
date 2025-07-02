@@ -125,9 +125,7 @@ class NavisionService {
     dotenv.config(); // Ensure dotenv is configured to load environment variables
 
 
-    this.makeRequest(`${process.env.NAVISION_URL}/VendorList_LoyaltyApp`, 'GET').then(result=>GlobalState.schemeFilter = result.value[0].Scheme_for_Invoice || '').catch(error=>{
-      console.error('Error fetching initial scheme filter:', error.message);
-    });
+ 
   }
    private hasKey(object, key) {
     return object?.[key] !== undefined;
@@ -188,22 +186,22 @@ class NavisionService {
 
   async syncCustomer() {
     try {
-    // Make initial API request
-    const result = await this.makeRequest(`${process.env.NAVISION_URL}/CustomerList_LoyaltyAppAPI`, 'GET');
-    
-    // Process initial batch of customer data
-    await this.bulkInsertCustomers(result.value);
+      const pageSize = 1000; // Define the number of records to fetch per request
+    let skip = 0; // Initial $skip value
+        let hasMoreData = true;
 
-    // Check for pagination
-    if (this.hasKey(result, 'odata.nextLink')) {
-      let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertCustomers(secondaryResult.value);
-      }
-    }
+        while (hasMoreData) {
+            // Construct URL with $top and $skip parameters
+            const url = `${process.env.NAVISION_URL}/CustomerList_LoyaltyAppAPI?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            
+            // Process batch of customer data
+            await this.bulkInsertCustomers(result.value);
+
+            // Check if there are more records to fetch
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize; // Increment skip for the next page
+        }
 
 
    
@@ -213,126 +211,120 @@ class NavisionService {
     }
   }
 
-  async syncRetail() {
+ async syncRetail() {
     try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/RetailList_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertRetailers(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertRetailers(secondaryResult.value);
-      }
-      }
-    } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
-    }
-  }
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
 
-  async syncSalesLedger() {
-try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/SalesPointsLedgerEntries_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertSalesPointLedgerEntry(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertSalesPointLedgerEntry(secondaryResult.value);
-      }
-      }
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/RetailList_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertRetailers(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+        }
     } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
+        console.error('Error syncing retail:', error);
+        throw new Error('Failed to sync retail data with Navision');
     }
-    }
+}
 
-  async syncNotifyCustomer() {
-     try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/NotifyCustomerList_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertNavisionNotifyCustomer(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertNavisionNotifyCustomer(secondaryResult.value);
-      }
-      }
-    } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
-    }
-  
-  }
-
-  async syncSalesClaimTransfer() {
+async syncSalesLedger() {
     try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/SalesPointClaim_Transfer_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertSalesPointsClaimTransfer(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertSalesPointsClaimTransfer(secondaryResult.value);
-      }
-      }
-    } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
-    }
-  }
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
 
-  async syncSalesPersonList(){
- try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/SalespersonList_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertNavisionSalespersonList(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertNavisionSalespersonList(secondaryResult.value);
-      }
-      }
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/SalesPointsLedgerEntries_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertSalesPointLedgerEntry(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+        }
     } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
+        console.error('Error syncing sales ledger:', error);
+        throw new Error('Failed to sync sales ledger data with Navision');
     }
-  }
- async syncRetailerReward(){
+}
+
+async syncNotifyCustomer() {
     try {
-      const result = await this.makeRequest(`${process.env.NAVISION_URL}/RetailerRewardPoint_LoyaltyApp`, 'GET');
-            
-      await this.bulkInsertRetailerRewardPointEntry(result.value);
-      if(this.hasKey(result,'odata.nextLink')){
-        let secondaryResult = result; // Use let instead of var for block scope
-      while (this.hasKey(secondaryResult, 'odata.nextLink')) {
-        // Fetch next page
-        secondaryResult = await this.makeRequest(secondaryResult['odata.nextLink'], 'GET');
-        // Process next batch of customer data
-        await this.bulkInsertRetailerRewardPointEntry(secondaryResult.value);
-      }
-      }
-    } catch (error: any) {
-      console.error('Error syncing retail:', error);
-      throw new Error('Failed to sync retail data with Navision');
-    }
- }
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
 
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/NotifyCustomerList_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertNavisionNotifyCustomer(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+        }
+    } catch (error: any) {
+        console.error('Error syncing notify customer:', error);
+        throw new Error('Failed to sync notify customer data with Navision');
+    }
+}
+
+async syncSalesClaimTransfer() {
+    try {
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
+
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/SalesPointClaim_Transfer_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertSalesPointsClaimTransfer(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+            console.log('Total records inserted', skip);
+        }
+    } catch (error: any) {
+        console.error('Error syncing sales claim transfer:', error);
+        throw new Error('Failed to sync sales claim transfer data with Navision');
+    }
+}
+
+async syncSalesPersonList() {
+    try {
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
+
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/SalespersonList_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertNavisionSalespersonList(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+        }
+    } catch (error: any) {
+        console.error('Error syncing salesperson list:', error);
+        throw new Error('Failed to sync salesperson list data with Navision');
+    }
+}
+
+async syncRetailerReward() {
+    try {
+        const pageSize = 1000;
+        let skip = 0;
+        let hasMoreData = true;
+
+        while (hasMoreData) {
+            const url = `${process.env.NAVISION_URL}/RetailerRewardPoint_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
+            const result = await this.makeRequest(url, 'GET');
+            await this.bulkInsertRetailerRewardPointEntry(result.value);
+            hasMoreData = result.value && result.value.length === pageSize;
+            skip += pageSize;
+        }
+    } catch (error: any) {
+        console.error('Error syncing retailer reward:', error);
+        throw new Error('Failed to sync retailer reward data with Navision');
+    }
+}
 
 
 
@@ -889,6 +881,7 @@ async  bulkInsertSalesPointsClaimTransfer(dataArray) {
           qualityDesc: data['Quality_Desc'],
           multiplier: data['Multiplier'],
           etag: data['ETag'],
+          docLineNo: data['Document_No'] + '-' + data['Line_No'], // Unique identifier for conflict resolution
         });
       }
     });
@@ -903,7 +896,7 @@ async  bulkInsertSalesPointsClaimTransfer(dataArray) {
     await db
       .insert(salesPointsClaimTransfer)
       .values(validRecords)
-      .onConflictDoNothing({ target: salesPointsClaimTransfer.lineNo });
+      .onConflictDoNothing({ target: salesPointsClaimTransfer.docLineNo });
 
     console.log(`Inserted ${validRecords.length} records into sales_points_claim_transfer`);
     if (skippedRecords.length > 0) {

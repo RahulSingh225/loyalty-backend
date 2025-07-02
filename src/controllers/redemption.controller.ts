@@ -1,5 +1,6 @@
 import { redemptionRepository } from "../repository";
 import { Request, Response } from "express";
+import { FileService } from "../services/file.service";
 
 class RedemptionController {
   async createRedemption(req: Request, res: Response) {
@@ -59,14 +60,20 @@ class RedemptionController {
   }
   async showRewards(req: Request, res: Response) {
     try {
+
+       const fileService = new FileService()
       const result = await redemptionRepository.showRewards();
-      console.log(result[0])
-      const output = result.map(record => ({
+   
+      const output =  result.map(record => ({
     id: record.giftId,
     title: record.giftName,
     image: record.imageUrl,
     points: record.value
   }));
+
+      await Promise.all(output.map(async (reward: any) => {
+        reward.image = await fileService.generateSignedUrl(reward.image)
+      }));
 
       return res.status(200).json(output);
     } catch (error) {

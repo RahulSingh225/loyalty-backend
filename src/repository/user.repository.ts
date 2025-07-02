@@ -219,7 +219,7 @@ class UserRepository extends BaseRepository {
   async loginUser(payload:any): Promise<any> {
 const result:any = await this.db.execute(
       sql`SELECT * FROM public.login_user(
-          ${payload.mobile_number},
+          ${payload.mobile},
           ${'otp_verified'},
           ${payload.fcm_token},
           ${JSON.stringify(payload.device_details)}::jsonb

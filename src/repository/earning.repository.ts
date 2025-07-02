@@ -44,7 +44,8 @@ class EarningRepository {
     
   //   // Assuming you have a pointsTransfer table to log transfers
   //   const transferResult = await db.insert(pointAllocationLog).values({
-  //     userId: Number(userId),
+  //     sourceUserId: Number(userId),
+  //     targetUserId: Number(payload.targetUserId), // Assuming targetUserId is part of payload
   //     amount: amount,
   //     status: "completed",
   //   }).returning();

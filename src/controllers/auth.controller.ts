@@ -100,7 +100,7 @@ class AuthController{
       async loginUser(req:Request, res:Response) {
         try {
             const payload = req.body;
-            if (!payload || !payload.mobile_number || !payload.fcm_token) {
+            if (!payload || !payload.mobile|| !payload.fcm_token) {
                 return res.status(400).json({ message: 'Bad request, mobile_number and fcm_token are required' });
             }
             const user = await this.userService.loginUser(payload);

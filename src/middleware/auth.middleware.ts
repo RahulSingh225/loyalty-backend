@@ -1,6 +1,7 @@
 import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
 import { NextFunction, Request, Response } from 'express';
 import  User  from '../types/user'; // Adjusted import to use named export
+import  {firebaseService}  from '../services/firebase.service';
 import {
   ACCESSS_TOKEN_EXPIRY,
   ACCESSS_TOKEN_SECRET,
@@ -9,6 +10,7 @@ import {
   REFRESH_TOKEN_SECRET,
   TEMP_TOKEN_EXPIRATION,
 } from '../configs/config';
+import { subMinutes, isBefore } from 'date-fns';
 
 // Define interface for JwtPayload to ensure type safety
 interface AuthJwtPayload extends JwtPayload {
@@ -31,6 +33,9 @@ declare global {
 }
 
 export class AuthMiddleware {
+
+
+ 
   async mobileToken(req: Request, res: Response, next: NextFunction) {
     try {
       const token = req.headers.authorization?.split(' ')[1];
@@ -135,19 +140,15 @@ export class AuthMiddleware {
     try {
       console.log("version",req.headers?.['app-version']);
       const { firebaseToken } = req.body;
-      const isBypass = req?.headers?.["api-key"] == API_KEY && typeof req.ip == "string" && req?.ip == IP_ADDRESS;
-      if (!isBypass) {
-        if (!firebaseToken) {
-          return res.json({ message: "Invalid Firebase Token", code: 404 });
-        }
-        const firebaseService = FirebaseService.getInstance()
-        const decoded = await firebaseService.getAuth().verifyIdToken(firebaseToken);
+     
+       
+        const decoded = await firebaseService.verifyIdToken(firebaseToken);
         if (this.isFirebaseTokenExpired(decoded.auth_time)) {
           return res.json({ message: "OTP expired, Please re-initiate", code: 440 })
         }
         req.body.mobile = decoded?.phone_number || ""
-      }
       next()
+      
     } catch (err) {
       return res.status(401).json({ message: "Invalid Firebase Token", code: 404 });
     }
