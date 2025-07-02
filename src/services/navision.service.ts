@@ -820,6 +820,8 @@ async  bulkInsertSalesPointLedgerEntry(dataArray) {
           scheme: data['Scheme'],
           salesPoints: data['Sales_Points'],
           customerIsAgent: data['Customer_is_Agent'],
+          quantity: data['Quantity'],
+          itemGroup: data['Item_Group_Code'],
           etag: data['ETag'],
         });
       }

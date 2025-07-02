@@ -27,6 +27,8 @@ export const salesPointLedgerEntry = pgTable("sales_point_ledger_entry", {
 	customerIsAgent: boolean("customer_is_agent"),
 	etag: varchar({ length: 100 }),
 	createdAt: timestamp({ withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	quantity: numeric(),
+	itemGroup: text("item_group"),
 }, (table) => [
 	unique("sales_point_ledger_entry_entry_no_key").on(table.entryNo),
 ]);

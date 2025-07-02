@@ -82,6 +82,8 @@ await db
 
 
 
+
+
 async function claimPoints() {
   try {
     // Step 1: Merge points from sales_point_ledger_entry (and optionally sales_points_claim_transfer)

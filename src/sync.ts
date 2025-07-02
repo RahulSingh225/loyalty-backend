@@ -20,7 +20,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 5000, // Timeout after 5 seconds
   max: 20, // Maximum number of connections in the pool
-  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  idleTimeoutMillis: 600000, // Close idle connections after 10 minutes
 });
 
 
@@ -87,35 +87,66 @@ async function insertSalesPointsClaimTransfer(data) {
   }
 }
 
-async function insertSalesPointLedgerEntry(data) {
+async function insertSalesPointLedgerEntry(dataArray) {
   try {
-    if (!data['Document_No']) {
-  console.warn(`Skipping record due to missing documentNo: ${JSON.stringify(data)}`);
-  return;
-}
-    await db
-      .insert(salesPointLedgerEntry)
-      .values({
+    // Validate input
+    if (!Array.isArray(dataArray) || dataArray.length === 0) {
+      console.warn('No valid data provided for bulk insert');
+      return;
+    }
+
+    // Filter out records with missing documentNo
+    const validData = dataArray.filter(data => {
+      if (!data['Document_No']) {
+        console.warn(`Skipping record due to missing documentNo: ${JSON.stringify(data)}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validData.length === 0) {
+      console.warn('No valid records to insert after filtering');
+      return;
+    }
+
+    // Define batch size (max ~3,852 rows for 17 columns due to PostgreSQL's 65,535 parameter limit)
+    const BATCH_SIZE = 3000;
+
+    // Process data in batches
+    for (let i = 0; i < validData.length; i += BATCH_SIZE) {
+      const batch = validData.slice(i, i + BATCH_SIZE);
+
+      // Map data to the required format for bulk insert
+      const values = batch.map(data => ({
         entryNo: data['Entry_No'],
-    documentType: data['Document_Type'],
-    documentNo: data['Document_No'],
-    customerNo: data['Customer_No'],
-    customerName: data['Customer_Name'],
-    notifyCustomerNo: data['Notify_Customer_No'],
-    notifyCustomerName: data['Notify_Customer_Name'],
-    agentCode: data['Agent_Code'],
-    agentName: data['Agent_Name'],
-    retailerNo: data['Retailer_No'],
-    retailerName: data['Retailer_Name'],
-    scheme: data['Scheme'],
-    salesPoints: data['Sales_Points'],
-    customerIsAgent: data['Customer_is_Agent'],
-    etag: data['ETag'],
-      })
-      .onConflictDoNothing({ target: salesPointLedgerEntry.entryNo });
-    console.log('Inserted into sales_point_ledger_entry');
+        documentType: data['Document_Type'],
+        documentNo: data['Document_No'],
+        customerNo: data['Customer_No'],
+        customerName: data['Customer_Name'],
+        notifyCustomerNo: data['Notify_Customer_No'],
+        notifyCustomerName: data['Notify_Customer_Name'],
+        agentCode: data['Agent_Code'],
+        agentName: data['Agent_Name'],
+        retailerNo: data['Retailer_No'],
+        retailerName: data['Retailer_Name'],
+        scheme: data['Scheme'],
+        salesPoints: data['Sales_Points'],
+        customerIsAgent: data['Customer_is_Agent'],
+        quantity: data['Quantity'],
+        itemGroup: data['Item_Group_Code'],
+        etag: data['ETag'],
+      }));
+
+      // Perform bulk insert
+      await db
+        .insert(salesPointLedgerEntry)
+        .values(values)
+        .onConflictDoNothing({ target: salesPointLedgerEntry.entryNo });
+    }
+
+    console.log(`Successfully inserted ${validData.length} records`);
   } catch (error) {
-    console.error('Error inserting into sales_point_ledger_entry:', error);
+    console.error('Error during bulk insert into sales_point_ledger_entry:', error);
     throw error;
   }
 }
@@ -296,10 +327,8 @@ checkDatabaseConnection()
   // }
 
   // Bulk insert SalesPointLedgerEntry
-  // const salesPointLedgerEntryData: [] = require('../json/salesPointLedgerEntry').default;
-  // for (const item of salesPointLedgerEntryData) {
-  //   await insertSalesPointLedgerEntry(item);
-  // }
+  const salesPointLedgerEntryData: [] = require('../json/salesPointLedgerEntry').default;
+  await insertSalesPointLedgerEntry(salesPointLedgerEntryData);
 
   // Bulk insert RetailerRewardPointEntry
   // const retailerRewardPointEntryData: [] = require('../json/retailerRewardPointEntry').default;
@@ -326,10 +355,10 @@ checkDatabaseConnection()
   // }
 
   // Bulk insert NavisionRetailMaster
-  const navisionRetailMasterData: [] = require('../json/navisionRetailMaster').default;
-  for (const item of navisionRetailMasterData) {
-    await insertNavisionRetailMaster(item);
-  }
+  // const navisionRetailMasterData: [] = require('../json/navisionRetailMaster').default;
+  // for (const item of navisionRetailMasterData) {
+  //   await insertNavisionRetailMaster(item);
+  // }
 
   // Close the database pool
   await pool.end();

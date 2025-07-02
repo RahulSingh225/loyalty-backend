@@ -1,6 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
-import { userMaster } from "../db/schema";
+import { salesPointLedgerEntry, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
 import BaseRepository from "./base.repository";
@@ -261,6 +261,26 @@ const user = result.rows[0].login_user;
   async listUsers(param: any): Promise<any[]> {
     const result = await this.db.select().from(userMaster).where(eq(userMaster.userType,param.userType))
     return result;
+  }
+
+  async getPointSummary(usercode:string): Promise<any> {
+    console.log('Fetching point summary for user:', usercode);
+    const result = await this.db.select({
+    groupName: salesPointLedgerEntry.itemGroup,
+    totalUnits: sum(salesPointLedgerEntry.quantity).as('totalUnits'),
+    totalPoints: sum(salesPointLedgerEntry.salesPoints).as('totalPoints'),
+  }).from(salesPointLedgerEntry).where(
+    and(
+      or(
+        eq(salesPointLedgerEntry.customerNo, 'C00001'),
+        eq(salesPointLedgerEntry.retailerNo, 'C00001'),
+        eq(salesPointLedgerEntry.notifyCustomerNo, 'C00001')
+      ),
+      ne(salesPointLedgerEntry.documentType, 'Claim')
+    )
+  ).groupBy(salesPointLedgerEntry.itemGroup)
+    console.log('Get Point Summary Result:', result);
+    return result
   }
 }
 export default UserRepository;

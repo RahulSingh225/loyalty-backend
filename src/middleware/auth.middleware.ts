@@ -131,6 +131,37 @@ export class AuthMiddleware {
     };
     return loginTokens;
   };
+  verifyFirebaseToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      console.log("version",req.headers?.['app-version']);
+      const { firebaseToken } = req.body;
+      const isBypass = req?.headers?.["api-key"] == API_KEY && typeof req.ip == "string" && req?.ip == IP_ADDRESS;
+      if (!isBypass) {
+        if (!firebaseToken) {
+          return res.json({ message: "Invalid Firebase Token", code: 404 });
+        }
+        const firebaseService = FirebaseService.getInstance()
+        const decoded = await firebaseService.getAuth().verifyIdToken(firebaseToken);
+        if (this.isFirebaseTokenExpired(decoded.auth_time)) {
+          return res.json({ message: "OTP expired, Please re-initiate", code: 440 })
+        }
+        req.body.mobile = decoded?.phone_number || ""
+      }
+      next()
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid Firebase Token", code: 404 });
+    }
+  }
+
+  isFirebaseTokenExpired(unixTimestamp: number) {
+    const timestamp = unixTimestamp * 1000; // Convert seconds to milliseconds
+    const dateFromTimestamp = new Date(timestamp);
+
+    const fiveMinutesAgo = subMinutes(new Date(), 5);
+
+    return isBefore(dateFromTimestamp, fiveMinutesAgo);
+  }
+
 }
 
 export const authMiddleware: AuthMiddleware = new AuthMiddleware();

@@ -72,15 +72,23 @@ class UserController {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const rewardPointSalesData = [
-    { group: 'A', totalUnits: 150, totalPoints: 300 },
-    { group: 'B', totalUnits: 200, totalPoints: 400 },
-    { group: 'C', totalUnits: 175, totalPoints: 350 },
-    { group: 'R', totalUnits: 120, totalPoints: 240 },
-    { group: 'ACTIVEWEAR', totalUnits: 180, totalPoints: 360 },
-    { group: 'CASUAL WEAR', totalUnits: 160, totalPoints: 320 },
-    { group: 'TOTAL', totalUnits: 985, totalPoints: 1970 },
-  ];
+      const rewardPointSalesData = await this.userService.getPointSummary(
+        user.data.navision_id
+      );
+      
+      
+      
+      
+      
+  //     [
+  //   { group: 'A', totalUnits: 150, totalPoints: 300 },
+  //   { group: 'B', totalUnits: 200, totalPoints: 400 },
+  //   { group: 'C', totalUnits: 175, totalPoints: 350 },
+  //   { group: 'R', totalUnits: 120, totalPoints: 240 },
+  //   { group: 'ACTIVEWEAR', totalUnits: 180, totalPoints: 360 },
+  //   { group: 'CASUAL WEAR', totalUnits: 160, totalPoints: 320 },
+  //   { group: 'TOTAL', totalUnits: 985, totalPoints: 1970 },
+  // ];
 
       user.rewardPointSalesData = rewardPointSalesData;
       return res.status(200).json(user);

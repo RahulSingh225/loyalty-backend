@@ -37,6 +37,11 @@ class FirebaseService {
       login_time: admin.firestore.FieldValue.serverTimestamp()
     });
   }
+
+  
 }
+
+
+
 
 export default FirebaseService;
