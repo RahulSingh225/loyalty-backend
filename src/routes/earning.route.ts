@@ -1,15 +1,17 @@
-// import { Router } from "express";
+ import { Router } from "express";
 // import { earningController } from "../controllers";
 
-// const earningRouter = Router();
+import { earningController } from "../controllers";
 
-// const earningRoutes = [
-//   {
-//     method: "post",
-//     path: "/earnings",
-//     handler: earningController.initiateEarning,
-//   },
-//   { method: "get", path: "/earnings", handler: earningController.getEarnings },
+ const earningRouter = Router();
+
+const earningRoutes = [
+  {
+    method: "post",
+    path: "/pointsTransfer",
+    handler: earningController.initiateEarning,
+  }]
+  //{ method: "get", path: "/earnings", handler: earningController.getEarnings }];
 //   {
 //     method: "put",
 //     path: "/earnings/:id",
@@ -27,8 +29,8 @@
 //   },
 // ];
 
-// earningRoutes.forEach((route) => {
-//   earningRouter[route.method](route.path, route.handler);
-// });
+earningRoutes.forEach((route) => {
+  earningRouter[route.method](route.path, route.handler);
+});
 
-// export default earningRouter;
+export default earningRouter;

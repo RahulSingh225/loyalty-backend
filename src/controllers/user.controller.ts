@@ -26,7 +26,7 @@ class UserController {
         hasAccess = Number(requestedUserId) === Number(authUserId);
       } else if (authUserType === "distributor") {
         // Distributor can view their own profile or any retailer's
-        if (requestedUserId === authUserId) {
+        if (requestedUserId == authUserId) {
           hasAccess = true;
         } else {
           // Check if the requested user is a retailer
