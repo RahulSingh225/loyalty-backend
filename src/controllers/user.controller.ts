@@ -140,7 +140,13 @@ class UserController {
   }
   async list(req: Request, res: Response) {
     try {
-      const users = await this.userService.listUsers(req.query);
+      const authUser = req?.user;
+      if (!authUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+
+      const users = await this.userService.listUsers(req.query, authUser);
       return res.status(200).json(users);
     } catch (error) {
       console.error(error);

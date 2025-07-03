@@ -3,7 +3,7 @@ import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, nav
 import { db, pool } from './db.service';
 import dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
-import {  and, eq, isNotNull, ne, sql, sum } from 'drizzle-orm';
+import {  and, eq, inArray, isNotNull, ne, sql, sum } from 'drizzle-orm';
 import { PoolClient } from 'pg';
 import { GlobalState } from '../configs/config';
     type VendorInsert = typeof navisionVendorMaster.$inferInsert;
@@ -1227,26 +1227,134 @@ async  onboardAllRetailers() {
     await pool.end(); // Close the connection pool
   }
 }
-async  mapDist(){
+async  mapDist() {
+  try {
+    // Fetch all navision IDs at once
+    const navisionRecords = await db
+      .select({ navId: retailer.navisionId })
+      .from(retailer);
 
-    const navision = await db.select({navId:retailer.navisionId}).from(retailer)
-
-    for await (let n of navision){
-        const naventry = await db.select().from(navisionRetailMaster).where(eq(navisionRetailMaster.no,n.navId))
-        if(naventry.length){
-
- const distEntry = await db.select().from(distributor).where(eq(distributor.navisionId,naventry[0].agentCode))
- if(distEntry.length)await db.update(retailer).set({distributorId:distEntry[0].distributorId})
-
-        }
-       
+    if (!navisionRecords.length) {
+      console.log('No navision records found');
+      return;
     }
+
+    // Extract navision IDs
+    const navIds = navisionRecords.map(n => n.navId);
+
+    // Batch fetch navision retail master entries
+    const navEntries = await db
+      .select()
+      .from(navisionRetailMaster)
+      .where(inArray(navisionRetailMaster.no, navIds));
+
+    // Create a map for quick lookup
+    const navEntryMap = new Map(
+      navEntries.map(entry => [entry.no, entry.agentCode])
+    );
+
+    // Get unique agent codes
+    const agentCodes = [...new Set(navEntries.map(entry => entry.agentCode))];
+
+    // Batch fetch distributor entries
+    const distEntries = await db
+      .select({ navisionId: distributor.navisionId, distributorId: distributor.distributorId })
+      .from(distributor)
+      .where(inArray(distributor.navisionId, agentCodes));
+
+    // Create a map for distributor lookup
+    const distMap = new Map(
+      distEntries.map(entry => [entry.navisionId, entry.distributorId])
+    );
+
+    // Prepare batch update operations
+    const updateOperations = navisionRecords
+      .filter(n => {
+        const agentCode = navEntryMap.get(n.navId);
+        return agentCode && distMap.get(agentCode);
+      })
+      .map(n => {
+        const agentCode = navEntryMap.get(n.navId);
+        return db
+          .update(retailer)
+          .set({ distributorId: distMap.get(agentCode) })
+          .where(eq(retailer.navisionId, n.navId));
+      });
+
+    // Execute updates in parallel
+    await Promise.all(updateOperations);
+
+    console.log(`Updated ${updateOperations.length} retailer records`);
+    return { updatedCount: updateOperations.length };
+  } catch (error) {
+    console.error('Error in mapDist:', error);
+    throw error;
+  }
 }
 
 
-   
+async mapSalesPerson() {
+  try {
+    // Fetch all navision IDs from retailer table
+    const navisionRecords = await db
+      .select({ navId: retailer.navisionId })
+      .from(retailer);
 
-async  totalPoints() {
+    if (!navisionRecords.length) {
+      console.log('No navision records found');
+      return { updatedCount: 0 };
+    }
+
+    // Update retailer table with salesAgentCode from the first matching table
+    const updateQuery = await db
+      .update(retailer)
+      .set({
+        salesAgentCodee: sql`
+          COALESCE(
+            (SELECT ${navisionRetailMaster.salesPersonCode} 
+             FROM ${navisionRetailMaster} 
+             WHERE ${navisionRetailMaster.no} = ${retailer.navisionId}),
+            (SELECT ${navisionCustomerMaster.salespersonCode} 
+             FROM ${navisionCustomerMaster} 
+             WHERE ${navisionCustomerMaster.no} = ${retailer.navisionId}),
+            (SELECT ${navisionNotifyCustomer.salesPerson} 
+             FROM ${navisionNotifyCustomer} 
+             WHERE ${navisionNotifyCustomer.no} = ${retailer.navisionId}),
+            NULL
+          )
+        `,
+      })
+      .where(inArray(retailer.navisionId, navisionRecords.map(n => n.navId)))
+      .returning({ updatedId: retailer.navisionId });
+
+    console.log(`Updated ${updateQuery.length} retailer records with salesAgentCode`);
+    return { updatedCount: updateQuery.length };
+  } catch (error) {
+    console.error('Error in mapDist:', error);
+    throw error;
+  }
+}
+
+async distributorPoints() {
+  try {
+    // Fetch all distributors with navision IDs
+    const distributors = await db
+      .select({ navisionId: distributor.navisionId, distributorId: distributor.distributorId })
+      .from(distributor)
+      .where(isNotNull(distributor.navisionId));
+    if (!distributors.length) {
+      console.log('No distributors found with navision IDs');
+      return;
+    }
+    
+
+  } catch (error) {
+    console.error('Error fetching distributors:', error);
+    throw new Error(`Failed to fetch distributors: ${error.message}`);
+  }
+}
+
+async totalPoints() {
 
   const INVOICE_SCHEME = 'SCHEME 1'
    const TRANSFER_CLAIM = 'SCHEME 1'
@@ -1338,9 +1446,10 @@ async claimPoints() {
              FROM (
                -- Aggregate from sales_point_ledger_entry
                SELECT ${salesPointLedgerEntry.retailerNo} AS navision_id, 
-                      SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+                      ABS(SUM(${salesPointLedgerEntry.salesPoints})) AS total_points
                FROM ${salesPointLedgerEntry}
                WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+               AND ${salesPointLedgerEntry.scheme} = ${GlobalState.schemeFilter}
                  AND ${salesPointLedgerEntry.retailerNo} IS NOT NULL
                GROUP BY ${salesPointLedgerEntry.retailerNo}
                UNION ALL
@@ -1349,12 +1458,15 @@ async claimPoints() {
                FROM ${salesPointLedgerEntry}
                WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
                  AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
+                    AND ${salesPointLedgerEntry.scheme} = ${GlobalState.schemeFilter}
+
                GROUP BY ${salesPointLedgerEntry.customerNo}
                UNION ALL
                SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, 
                       SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
                FROM ${salesPointLedgerEntry}
                WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
+                  AND ${salesPointLedgerEntry.scheme} = ${GlobalState.schemeFilter}
                  AND ${salesPointLedgerEntry.notifyCustomerNo} IS NOT NULL
                GROUP BY ${salesPointLedgerEntry.notifyCustomerNo}
                UNION ALL
@@ -1493,14 +1605,32 @@ async claimPoints() {
     throw new Error(`Failed to sync retailer navision IDs: ${error.message}`);
   }
 }
+
+async balancePoints() {
+  try {
+
+await db.update(retailer).set({balancePoints: sql`(SELECT ${retailer.totalPoints} - ${retailer.consumedPoints})`});
+await db.update(userMaster).set({balancePoints: sql`(SELECT ${userMaster.totalPoints} - ${userMaster.redeemedPoints})`});
+
+  } catch (error) {
+    console.error('Error balancing points:', error);
+    throw new Error(`Failed to balance points: ${error.message}`);
+  }
+}
+
 async onboardSalesPerson(){
     try {
          const sales = await db.select().from(navisionSalespersonList).where(eq(navisionSalespersonList.onboarded,false))
     for await (let s of sales){
         await db.transaction(async (tx)=>{
-
-           const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).returning()
-            await tx.insert(salesperson).values({userId:entry.values['userId'],salespersonName:s.name,state:s.state,pinCode:s.postCode,mobileNumber:s.whatsappMobileNumber,address:s.address,address2:s.address2,city:s.city,navisionId:s.code})
+            const existingUser = await tx.select().from(userMaster).where(eq(userMaster.mobileNumber,s.whatsappMobileNumber)).limit(1);
+            if (existingUser.length > 0) {
+                console.log(`User with mobile number ${s.whatsappMobileNumber} already exists, skipping onboarding.`);
+                return; // Skip if user already exists
+            }
+           const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).onConflictDoNothing({ target: userMaster.mobileNumber }).returning()
+           console.log(`Onboarded user: ${entry} with mobile number ${s.whatsappMobileNumber}`);
+            await tx.insert(salesperson).values({userId:entry[0].userId,salespersonName:s.name,state:s.state,pinCode:s.postCode,mobileNumber:s.whatsappMobileNumber,address:s.address,address2:s.address2,city:s.city,navisionId:s.code}).onConflictDoNothing({target:salesperson.userId})
             await db.update(navisionSalespersonList).set({onboarded:true}).where(eq(navisionSalespersonList.code,s.code))
         })
     }

@@ -3,7 +3,7 @@ import { gifts, pointAllocationLog, redemptionRequest, userMaster } from "../db/
 import BaseRepository from "./base.repository";
 
 class RedemptionRepository extends BaseRepository {
-  async initiateRedemption(payload: any) {
+  async initiateRedemption(payload: any,authUser:any) {
     const result = await this.db.select({balance:userMaster.balancePoints}).from(userMaster).where(eq(userMaster.userId, payload.userId));
     if(result[0].balance < payload.amount) {
       throw new Error("Insufficient balance for redemption");
@@ -22,10 +22,13 @@ class RedemptionRepository extends BaseRepository {
         pointsRedeemed: payload.amount, // Assuming pointsRedeemed equals amount
         deliveryAddress:payload.address,
         quantity:payload.quantity,
-        createdAt: new Date().toISOString(), // Set current timestamp
+        createdAt: new Date().toISOString(),
+        createdBy: authUser.userId,
       };
+      
     const redemptionResult = await this.db.insert(redemptionRequest).values(values).returning();
    const response =  await this.db.execute(sql`SELECT * FROM public.update_points(${payload.userId}, ${payload.amount},'consume') `)
+   
    console.log(response.rows[0].update_points)
 
     return redemptionResult[0];

@@ -5,7 +5,7 @@ import { FileService } from "../services/file.service";
 class RedemptionController {
   async createRedemption(req: Request, res: Response) {
     try {
-      const result = await redemptionRepository.initiateRedemption(req.body);
+      const result = await redemptionRepository.initiateRedemption(req.body,req.user);
       return res.status(201).json(result);
     } catch (error) {
       console.log(error)

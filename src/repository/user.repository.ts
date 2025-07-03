@@ -1,6 +1,6 @@
 import { and, eq, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
-import { salesPointLedgerEntry, userMaster } from "../db/schema";
+import { distributor, retailer, salesPointLedgerEntry, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
 import BaseRepository from "./base.repository";
@@ -219,7 +219,7 @@ class UserRepository extends BaseRepository {
   async loginUser(payload:any): Promise<any> {
 const result:any = await this.db.execute(
       sql`SELECT * FROM public.login_user(
-          ${payload.mobile},
+          ${payload.mobile_number},
           ${'otp_verified'},
           ${payload.fcm_token},
           ${JSON.stringify(payload.device_details)}::jsonb
@@ -258,9 +258,49 @@ const user = result.rows[0].login_user;
     }
     this.users.delete(id);
   }
-  async listUsers(param: any): Promise<any[]> {
-    const result = await this.db.select().from(userMaster).where(eq(userMaster.userType,param.userType))
-    return result;
+  async listUsers(param: any, authUser: any): Promise<any[]> {
+
+    switch (authUser.userType) {
+  case 'admin':
+    return await this.db.select(userMaster)
+      .from(userMaster)
+      .where(eq(userMaster.userType, param.userType));
+
+  case 'distributor':
+    return await this.db.select(userMaster)
+      .from(userMaster)
+      .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
+      .where(and(
+        eq(userMaster.userType, 'retailer'),
+        eq(retailer.distributorId, authUser.userId)
+      ));
+
+  case 'sales':
+    if (param.userType === 'retailer') {
+      return await this.db.select(userMaster)
+        .from(userMaster)
+        .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
+        .where(and(
+          eq(userMaster.userType, 'retailer'),
+          eq(retailer.salesAgentCodee, authUser.userCode)
+        ));
+    } else if (param.userType === 'distributor') {
+      // Assuming distributors might have a sales code association in userMaster or another table
+      // Since the exact field isn't specified, using a placeholder condition
+      return await this.db.select(userMaster)
+        .from(userMaster)
+        .innerJoin(distributor, eq(userMaster.userId, distributor.userId))
+        .where(and(
+          eq(userMaster.userType, 'distributor'),
+          eq(distributor.salesPersonCode, authUser.userCode) // Adjust this field name as per actual schema
+        ));
+    } else {
+      throw new Error('Invalid userType for sales');
+    }
+
+  default:
+    throw new Error('Unauthorized access');
+}
   }
 
   async getPointSummary(usercode:string): Promise<any> {

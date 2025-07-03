@@ -154,34 +154,6 @@ export const contentManagement = pgTable("content_management", {
 	lastUpdatedAt: timestamp("last_updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const distributor = pgTable("distributor", {
-	distributorId: serial("distributor_id").primaryKey().notNull(),
-	userId: integer("user_id").notNull(),
-	distributorName: varchar("distributor_name", { length: 255 }).notNull(),
-	contactPerson: varchar("contact_person", { length: 255 }),
-	phoneNumber: varchar("phone_number", { length: 20 }),
-	email: varchar({ length: 255 }),
-	address: text(),
-	city: varchar({ length: 100 }),
-	state: varchar({ length: 100 }),
-	zipCode: varchar("zip_code", { length: 20 }),
-	gstNumber: varchar("gst_number", { length: 15 }),
-	navisionId: varchar("navision_id", { length: 100 }),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	totalPoints: integer("total_points").default(0),
-	balancePoints: integer("balance_points").default(0),
-	consumedPoints: integer("consumed_points").default(0),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [userMaster.userId],
-			name: "distributor_user_id_fkey"
-		}),
-	unique("distributor_user_id_key").on(table.userId),
-	unique("distributor_navision_id_key").on(table.navisionId),
-]);
-
 export const mediaLinks = pgTable("media_links", {
 	linkId: serial("link_id").primaryKey().notNull(),
 	platformName: varchar("platform_name", { length: 100 }).notNull(),
@@ -252,38 +224,6 @@ export const navisionVendorMaster = pgTable("navision_vendor_master", {
 	unique("vendor_unique").on(table.no),
 ]);
 
-export const redemptionRequest = pgTable("redemption_request", {
-	requestId: serial("request_id").primaryKey().notNull(),
-	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
-	userId: integer("user_id"),
-	distributorId: integer("distributor_id"),
-	method: varchar({ length: 50 }).notNull(),
-	pointsRedeemed: numeric("points_redeemed").notNull(),
-	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
-	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
-	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	status: varchar({ length: 100 }).default('pending'),
-	paymentCleared: boolean("payment_cleared").default(false),
-	fulfillmentDetails: text("fulfillment_details"),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	deliveryAddress: text("delivery_address"),
-	quantity: numeric(),
-	reward: text(),
-	rewardId: integer("reward_id"),
-	navisionId: text("navision_id"),
-	retailerCode: text("retailer_code"),
-	distributorCode: text("distributor_code"),
-	documentNo: text("document_no"),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [userMaster.userId],
-			name: "redemption_request_user_id_fkey"
-		}),
-	unique("entry_no_navision_id").on(table.navisionId),
-]);
-
 export const pointAllocationLog = pgTable("point_allocation_log", {
 	allocationId: serial("allocation_id").primaryKey().notNull(),
 	invoiceId: integer("invoice_id"),
@@ -348,6 +288,69 @@ export const transaction = pgTable("transaction", {
 			foreignColumns: [userMaster.userId],
 			name: "transaction_user_id_fkey"
 		}),
+]);
+
+export const redemptionRequest = pgTable("redemption_request", {
+	requestId: serial("request_id").primaryKey().notNull(),
+	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
+	userId: integer("user_id"),
+	distributorId: integer("distributor_id"),
+	method: varchar({ length: 50 }).notNull(),
+	pointsRedeemed: numeric("points_redeemed").notNull(),
+	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
+	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
+	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	status: varchar({ length: 100 }).default('pending'),
+	paymentCleared: boolean("payment_cleared").default(false),
+	fulfillmentDetails: text("fulfillment_details"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	deliveryAddress: text("delivery_address"),
+	quantity: numeric(),
+	reward: text(),
+	rewardId: integer("reward_id"),
+	navisionId: text("navision_id"),
+	retailerCode: text("retailer_code"),
+	distributorCode: text("distributor_code"),
+	documentNo: text("document_no"),
+	salesPersonCode: text("sales_person_code"),
+	createdBy: text("created_by"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [userMaster.userId],
+			name: "redemption_request_user_id_fkey"
+		}),
+	unique("entry_no_navision_id").on(table.navisionId),
+]);
+
+export const distributor = pgTable("distributor", {
+	distributorId: serial("distributor_id").primaryKey().notNull(),
+	userId: integer("user_id").notNull(),
+	distributorName: varchar("distributor_name", { length: 255 }).notNull(),
+	contactPerson: varchar("contact_person", { length: 255 }),
+	phoneNumber: varchar("phone_number", { length: 20 }),
+	email: varchar({ length: 255 }),
+	address: text(),
+	city: varchar({ length: 100 }),
+	state: varchar({ length: 100 }),
+	zipCode: varchar("zip_code", { length: 20 }),
+	gstNumber: varchar("gst_number", { length: 15 }),
+	navisionId: varchar("navision_id", { length: 100 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	totalPoints: integer("total_points").default(0),
+	balancePoints: integer("balance_points").default(0),
+	consumedPoints: integer("consumed_points").default(0),
+	salesPersonCode: text("sales_person_code"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [userMaster.userId],
+			name: "distributor_user_id_fkey"
+		}),
+	unique("distributor_user_id_key").on(table.userId),
+	unique("distributor_navision_id_key").on(table.navisionId),
 ]);
 
 export const userRoles = pgTable("user_roles", {
