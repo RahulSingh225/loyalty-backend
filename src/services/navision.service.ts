@@ -1454,7 +1454,7 @@ async claimPoints() {
                GROUP BY ${salesPointLedgerEntry.retailerNo}
                UNION ALL
                SELECT ${salesPointLedgerEntry.customerNo} AS navision_id, 
-                      SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+                      ABS(SUM(${salesPointLedgerEntry.salesPoints})) AS total_points
                FROM ${salesPointLedgerEntry}
                WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
                  AND ${salesPointLedgerEntry.customerNo} IS NOT NULL
@@ -1463,7 +1463,7 @@ async claimPoints() {
                GROUP BY ${salesPointLedgerEntry.customerNo}
                UNION ALL
                SELECT ${salesPointLedgerEntry.notifyCustomerNo} AS navision_id, 
-                      SUM(${salesPointLedgerEntry.salesPoints}) AS total_points
+                     ABS(SUM(${salesPointLedgerEntry.salesPoints})) AS total_points
                FROM ${salesPointLedgerEntry}
                WHERE ${salesPointLedgerEntry.documentType} = 'Claim'
                   AND ${salesPointLedgerEntry.scheme} = ${GlobalState.schemeFilter}

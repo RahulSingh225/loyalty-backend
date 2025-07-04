@@ -47,45 +47,45 @@ async function checkDatabaseConnection(): Promise<void> {
 }
 
 // Insert functions for each table
-async function insertSalesPointsClaimTransfer(data) {
-  try {
-    if (!data['Document_No']) {
-  console.warn(`Skipping record due to missing documentNo: ${JSON.stringify(data)}`);
-  return;
-}
-    await db
-      .insert(salesPointsClaimTransfer)
-      .values({
-        documentNo: String(data['Document_No']),
-        isMaster: data['Is_Master'],
-        lineNo: data['Line_No'],
-        entryType: data['Entry_Type'],
-        lineType: data['Line_Type'],
-        customerNo: data['Customer_No'],
-        customerName: data['Customer_Name'],
-        agentCode: data['Agent_Code'],
-        agentName: data['Agent_Name'],
-        retailerNo: data['Retailer_No'],
-        retailerName: data['retailer_Name'],
-        notifyCustomer: data['Notify_Customer'],
-        notifyCustomerName: data['Notify_Customer_Name'],
-        salesPersonCode: data['Sales_Person_Code'],
-        customerPostingGroup: data['Customer_Posting_Group'],
-        status: data['Status'],
-        scheme: data['Scheme'],
-        salesPoint: data['Sales_Point'],
-        quantity: (data['Quantity']),
-        qualityDesc: data['Quality_Desc'],
-        multiplier: data['Multiplier'],
-        etag: data['ETag'],
-      })
-      .onConflictDoNothing({ target: salesPointsClaimTransfer.lineNo });
-    console.log('Inserted into sales_points_claim_transfer');
-  } catch (error) {
-    console.error('Error inserting into sales_points_claim_transfer:', error);
-    throw error;
-  }
-}
+// async function insertSalesPointsClaimTransfer(data) {
+//   try {
+//     if (!data['Document_No']) {
+//   console.warn(`Skipping record due to missing documentNo: ${JSON.stringify(data)}`);
+//   return;
+// }
+//     await db
+//       .insert(salesPointsClaimTransfer)
+//       .values({
+//         documentNo: String(data['Document_No']),
+//         isMaster: data['Is_Master'],
+//         lineNo: data['Line_No'],
+//         entryType: data['Entry_Type'],
+//         lineType: data['Line_Type'],
+//         customerNo: data['Customer_No'],
+//         customerName: data['Customer_Name'],
+//         agentCode: data['Agent_Code'],
+//         agentName: data['Agent_Name'],
+//         retailerNo: data['Retailer_No'],
+//         retailerName: data['retailer_Name'],
+//         notifyCustomer: data['Notify_Customer'],
+//         notifyCustomerName: data['Notify_Customer_Name'],
+//         salesPersonCode: data['Sales_Person_Code'],
+//         customerPostingGroup: data['Customer_Posting_Group'],
+//         status: data['Status'],
+//         scheme: data['Scheme'],
+//         salesPoint: data['Sales_Point'],
+//         quantity: (data['Quantity']),
+//         qualityDesc: data['Quality_Desc'],
+//         multiplier: data['Multiplier'],
+//         etag: data['ETag'],
+//       })
+//       .onConflictDoNothing({ target: salesPointsClaimTransfer.lineNo });
+//     console.log('Inserted into sales_points_claim_transfer');
+//   } catch (error) {
+//     console.error('Error inserting into sales_points_claim_transfer:', error);
+//     throw error;
+//   }
+// }
 
 async function insertSalesPointLedgerEntry(dataArray) {
   try {

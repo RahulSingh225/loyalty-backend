@@ -8,8 +8,8 @@
     "build": "tsc",
     "dev": "nodemon src/server.ts",
     "lint": "eslint src --ext .ts",
-    "docker:build": "docker build -t vikasshah24/ranjit_loyalty:stage .",
-    "docker:push": "docker push vikasshah24/ranjit_loyalty:stage"
+    "docker:build": "docker build -t spacempact/ranjit_loyalty:stage .",
+    "docker:push": "docker push spacempact/ranjit_loyalty:stage"
   },
   "repository": {
     "type": "git",
