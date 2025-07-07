@@ -33,7 +33,8 @@ class UserController {
           const requestedUser = await this.userService.getUserById(
             requestedUserId
           );
-          if (requestedUser && requestedUser.user_type === "retailer") {
+          console.log(`Requested User: ${JSON.stringify(requestedUser)}`);
+          if (requestedUser && requestedUser.data.user_type === "retailer") {
             hasAccess = true;
           }
         }

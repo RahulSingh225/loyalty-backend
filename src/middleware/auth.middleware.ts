@@ -75,7 +75,7 @@ export class AuthMiddleware {
 
   async verifyJWT(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log(req.headers);
+      
       const token = req.header('Authorization')?.replace('Bearer ', '');
       console.log(token);
       if (!token) {

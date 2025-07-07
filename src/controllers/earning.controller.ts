@@ -4,9 +4,10 @@ class EarningController {
   async initiateEarning(req: Request, res: Response) {
     try {
       const result = await earningRepository.pointsTransfer(req.body);
-      return res.status(201).json(result);
+      return res.status(201).json({success:true,data:result});
     } catch (error) {
-      return res.status(500).json(error.message);
+      console.log(error);
+      return res.status(500).json({success:false,message:error.message});
     }
   }
 

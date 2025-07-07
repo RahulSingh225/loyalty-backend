@@ -267,12 +267,23 @@ const user = result.rows[0].login_user;
       .where(eq(userMaster.userType, param.userType));
 
   case 'distributor':
-    return await this.db.select(userMaster)
+    console.log('Listing users for distributor:', authUser); 
+      const dist = await this.db.select().from(distributor).where(eq(distributor.userId, authUser.userId));
+      console.log('Distributor details:', dist);
+      if (dist.length === 0) {
+        return [];
+      }
+    return await this.db.select({
+  shopName: retailer.shopName,
+  userId: retailer.userId,
+  whatsappNo: retailer.whatsappNo,
+  navisionId: retailer.navisionId
+})
       .from(userMaster)
       .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
       .where(and(
         eq(userMaster.userType, 'retailer'),
-        eq(retailer.distributorId, authUser.userId)
+        eq(retailer.distributorId, dist[0].distributorId)
       ));
 
   case 'sales':
