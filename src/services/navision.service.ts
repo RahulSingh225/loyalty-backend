@@ -1713,6 +1713,41 @@ async  syncRedemptionRequest() {
   }
 }
 
+// async pushledgerToNavision() {
+//   try {
+//     return
+//     // Fetch all records from sales_point_ledger_entry
+//     const records = await db.select().from(salesPointLedgerEntry);
+
+//     if (records.length === 0) {
+//       console.log('No records found in sales_point_ledger_entry');
+//       return;
+//     }
+
+//     // Map records to the format required for Navision
+//     const values = records.map(record => ({
+//       documentNo: record.documentNo,
+//       documentType: record.documentType,
+//       entryType: record.entryType,
+//       lineType: record.lineType,
+//       retailerNo: record.retailerNo,
+//       customerNo: record.customerNo,
+//       notifyCustomerNo: record.notifyCustomerNo,
+//       salesPoints: record.salesPoints,
+//       entryDate: record.entryDate,
+//       agentCode: record.agentCode,
+//       scheme: record.scheme,
+//     }));
+
+//     // Perform bulk insert into Navision table
+//     await db.insert(navisionSalesPointLedgerEntry).values(values).onConflictDoNothing();
+
+//     console.log(`Inserted ${values.length} records into navision_sales_point_ledger_entry`);
+//   } catch (error) {
+//     console.error('Error during bulk insert into navision_sales_point_ledger_entry:', error);
+//     throw error;
+//   }
+// }
 }
 
 export default NavisionService;

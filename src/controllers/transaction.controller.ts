@@ -15,7 +15,7 @@ this.transactionRepository = new TransactionRepository()
         
         try {
 
-            const userId = req.user.userId;
+            const userId = req.user;
             
  const result = await this.transactionRepository.getPassbook(userId)
         res.json({success:true,data:result})

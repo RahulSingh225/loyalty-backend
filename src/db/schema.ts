@@ -291,39 +291,46 @@ export const transaction = pgTable("transaction", {
 ]);
 
 export const redemptionRequest = pgTable("redemption_request", {
-	requestId: serial("request_id").primaryKey().notNull(),
-	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
-	userId: integer("user_id"),
-	distributorId: integer("distributor_id"),
-	method: varchar({ length: 50 }).notNull(),
-	pointsRedeemed: numeric("points_redeemed").notNull(),
-	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
-	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
-	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	status: varchar({ length: 100 }).default('pending'),
-	paymentCleared: boolean("payment_cleared").default(false),
-	fulfillmentDetails: text("fulfillment_details"),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	deliveryAddress: text("delivery_address"),
-	quantity: numeric(),
-	reward: text(),
-	rewardId: integer("reward_id"),
-	navisionId: text("navision_id"),
-	retailerCode: text("retailer_code"),
-	distributorCode: text("distributor_code"),
-	documentNo: text("document_no"),
-	salesPersonCode: text("sales_person_code"),
-	createdBy: text("created_by"),
+  requestId: serial("request_id").primaryKey().notNull(),
+  redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
+  userId: integer("user_id"),
+  distributorId: integer("distributor_id"),
+  method: varchar("method", { length: 50 }).notNull(),
+  monetaryValue: numeric("monetary_value", { precision: 10, scale: 2 }),
+  requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+  status: varchar("status", { length: 100 }).default('pending'),
+  paymentCleared: boolean("payment_cleared").default(false),
+  fulfillmentDetails: text("fulfillment_details"),
+  createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+  deliveryAddress: text("delivery_address"),
+  navisionId: text("navision_id"),
+  retailerCode: text("retailer_code"),
+  distributorCode: text("distributor_code"),
+  documentNo: text("document_no"),
+  salesPersonCode: text("sales_person_code"),
+  createdBy: text("created_by"),
 }, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [userMaster.userId],
-			name: "redemption_request_user_id_fkey"
-		}),
-	unique("entry_no_navision_id").on(table.navisionId),
+  foreignKey({
+    columns: [table.userId],
+    foreignColumns: [userMaster.userId],
+    name: "redemption_request_user_id_fkey"
+  })
+ 
 ]);
 
+export const redemptionRewardLines = pgTable("redemption_reward_lines", {
+  lineId: serial("line_id").primaryKey().notNull(),
+  requestId: integer("request_id").notNull().references(() => redemptionRequest.requestId, { onDelete: 'cascade' }),
+  redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
+  rewardId: varchar("reward_id", { length: 50 }).notNull(), // Changed to varchar to match giftId as string
+  pointsValue: numeric("points_value", { precision: 10, scale: 2 }).notNull(),
+  pointsRedeemed: numeric("points_redeemed", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  reward: text("reward"),
+  createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: text("created_by"),
+});
 export const distributor = pgTable("distributor", {
 	distributorId: serial("distributor_id").primaryKey().notNull(),
 	userId: integer("user_id").notNull(),
