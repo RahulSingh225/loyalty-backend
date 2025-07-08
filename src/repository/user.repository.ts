@@ -1,4 +1,4 @@
-import { and, eq, ne, or, sql, sum } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
 import { distributor, retailer, salesPointLedgerEntry, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
@@ -238,7 +238,6 @@ const user = result.rows[0].login_user;
   async getUserById(id: string): Promise<any | null> {
 
     const result = await this.db.execute(sql`SELECT * FROM get_user_details(${parseInt(id)})`);
-    console.log('Get User By ID Result:', result);
     return result.rows.length > 0 ? result.rows[0].get_user_details : null;
   }
 
@@ -287,12 +286,18 @@ const user = result.rows[0].login_user;
 
   case 'sales':
     if (param.userType === 'retailer') {
-      return await this.db.select(userMaster)
+      console.log(authUser)
+      return await this.db.select({
+  shopName: retailer.shopName,
+  userId: retailer.userId,
+  whatsappNo: retailer.whatsappNo,
+  navisionId: retailer.navisionId
+})
         .from(userMaster)
         .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
         .where(and(
           eq(userMaster.userType, 'retailer'),
-          eq(retailer.salesAgentCodee, authUser.userCode)
+          inArray(retailer.salesAgentCodee, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`)
         ));
     } else if (param.userType === 'distributor') {
       // Assuming distributors might have a sales code association in userMaster or another table
@@ -302,7 +307,7 @@ const user = result.rows[0].login_user;
         .innerJoin(distributor, eq(userMaster.userId, distributor.userId))
         .where(and(
           eq(userMaster.userType, 'distributor'),
-          eq(distributor.salesPersonCode, authUser.userCode) // Adjust this field name as per actual schema
+          inArray(distributor.salesPersonCode, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`) // Adjust this field name as per actual schema
         ));
     } else {
       throw new Error('Invalid userType for sales');

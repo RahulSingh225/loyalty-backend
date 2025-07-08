@@ -10,6 +10,7 @@ import {
   navisionNotifyCustomer,
   navisionCustomerMaster,
   navisionRetailMaster,
+  retailer,
 } from './db/schema'; // Adjust the import path based on your schema file location
 import { db } from './services/db.service';
 
@@ -43,6 +44,22 @@ async function checkDatabaseConnection(): Promise<void> {
     if (client) {
       client.release();
     }
+  }
+}
+
+async function retailerAgent() {
+  try {
+    const retailerlist = await db.select().from(retailer)
+   for await (let r of retailerlist){
+    const customer = await db.select().from(navisionCustomerMaster).where(eq(navisionCustomerMaster.no,r.navisionId))
+    if(customer.length) await db.update(retailer).set({salesAgentCodee:customer[0].salespersonCode}).where(eq(retailer.navisionId,r.navisionId))
+    const retail = await db.select().from(navisionRetailMaster).where(eq(navisionRetailMaster.no,r.navisionId))
+  if(retail.length) await db.update(retailer).set({salesAgentCodee:retail[0].salesPersonCode}).where(eq(retailer.navisionId,r.navisionId))
+    const notify = await db.select().from(navisionNotifyCustomer).where(eq(navisionNotifyCustomer.no,r.navisionId))
+  if(notify.length) await db.update(retailer).set({salesAgentCodee:notify[0].salesPerson}).where(eq(retailer.navisionId,r.navisionId))
+   }
+  } catch (error) {
+    console.log(error)
   }
 }
 
@@ -366,7 +383,4 @@ checkDatabaseConnection()
 
 
 // Run the main function
-main().catch((error) => {
- 
-  console.error('Error in main:', error);
-});
+retailerAgent()

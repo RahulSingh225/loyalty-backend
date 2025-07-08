@@ -116,6 +116,7 @@ export class AuthMiddleware {
           userId: user.user_id,
           userType: user.user_type,
           mobile: user.mobile,
+          
         },
         ACCESSS_TOKEN_SECRET as string, // Use ACCESS_TOKEN_SECRET for accessToken
         {

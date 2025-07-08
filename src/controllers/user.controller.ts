@@ -40,17 +40,18 @@ class UserController {
         }
       } else if (authUserType === "sales") {
         // Sales can view their own, any distributor's, or any retailer's profile
-        if (requestedUserId === authUserId) {
+        if (requestedUserId == authUserId) {
           hasAccess = true;
         } else {
           // Check if the requested user is a distributor or retailer
           const requestedUser = await this.userService.getUserById(
             requestedUserId
           );
+          console.log(requestedUser)
           if (
             requestedUser &&
-            (requestedUser.user_type === "distributor" ||
-              requestedUser.user_type === "retailer")
+            (requestedUser.data.user_type === "distributor" ||
+              requestedUser.data.user_type === "retailer")
           ) {
             hasAccess = true;
           }
