@@ -5,11 +5,7 @@ import { authMiddleware } from "../middleware/auth.middleware";
 const redemptionRouter = Router();
 
 const redemptionRoutes = [
-  {
-    method: "post",
-    path: "/placeNew",
-    handler: redemptionController.createRedemption,
-  },
+ 
  
   {
     method: "get",
@@ -27,6 +23,12 @@ const redemptionRoutes = [
 redemptionRoutes.forEach((route) => {
   redemptionRouter[route.method](route.path, route.handler);
 });
+
+redemptionRouter.post('/placeNew',
+  authMiddleware.verifyJWT,
+  redemptionController.createRedemption.bind(redemptionController)
+);
+
 redemptionRouter.get(
   "/list",
   authMiddleware.verifyJWT,

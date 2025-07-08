@@ -15,11 +15,17 @@ class RedemptionController {
 
   async getRedemptions(req:any, res: Response) {
     try {
-      
+      const fileService = new FileService();
       const userId = req.user.userId;
       const result = await redemptionRepository.getRedemptions(userId);
+      await Promise.all(result.map(async (record: any) => {
+        if (record.gifts.imageUrl) {
+          record.gifts.imageUrl = await fileService.generateSignedUrl(record.gifts.imageUrl);
+        }
+      }));
       return res.status(200).json(result);
     } catch (error) {
+      console.log(error)
       return res.status(500).json(error.message);
     }
   }

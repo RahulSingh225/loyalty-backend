@@ -11,6 +11,7 @@ interface RedemptionPayload {
 
 class RedemptionRepository extends BaseRepository {
   async initiateRedemption(payload: RedemptionPayload, authUser: any) {
+    console.log(payload)
     const result = await this.db.select({ balance: userMaster.balancePoints }).from(userMaster).where(eq(userMaster.userId, payload.userId));
     if (result[0].balance < payload.rewards.reduce((acc, reward) => acc + reward.amount, 0)) {
       throw new Error("Insufficient balance for redemption");
@@ -24,8 +25,8 @@ class RedemptionRepository extends BaseRepository {
           redemptionId: `RED-${Date.now()}`, // Generate unique redemptionId (adjust as needed)
           userId: payload.userId,
           deliveryAddress: payload.address,
-          method: 'gift',
-          status: 'pending',
+          method: 'Claim',
+          status: 'Submitted',
           createdAt: new Date().toISOString(),
           createdBy: authUser.userId,
           // Add other fields like distributorId, navisionId, etc., if needed

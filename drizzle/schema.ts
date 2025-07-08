@@ -296,8 +296,6 @@ export const redemptionRequest = pgTable("redemption_request", {
 	userId: integer("user_id"),
 	distributorId: integer("distributor_id"),
 	method: varchar({ length: 50 }).notNull(),
-	pointsRedeemed: numeric("points_redeemed").notNull(),
-	pointsValue: numeric("points_value", { precision: 10, scale:  2 }),
 	monetaryValue: numeric("monetary_value", { precision: 10, scale:  2 }),
 	requestDate: timestamp("request_date", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	status: varchar({ length: 100 }).default('pending'),
@@ -306,9 +304,6 @@ export const redemptionRequest = pgTable("redemption_request", {
 	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	deliveryAddress: text("delivery_address"),
-	quantity: numeric(),
-	reward: text(),
-	rewardId: integer("reward_id"),
 	navisionId: text("navision_id"),
 	retailerCode: text("retailer_code"),
 	distributorCode: text("distributor_code"),
@@ -358,6 +353,25 @@ export const userRoles = pgTable("user_roles", {
 	roleName: varchar("role_name", { length: 50 }).notNull(),
 }, (table) => [
 	unique("user_roles_role_name_key").on(table.roleName),
+]);
+
+export const redemptionRewardLines = pgTable("redemption_reward_lines", {
+	lineId: serial("line_id").primaryKey().notNull(),
+	requestId: integer("request_id").notNull(),
+	redemptionId: varchar("redemption_id", { length: 100 }).notNull(),
+	rewardId: integer("reward_id").notNull(),
+	pointsValue: numeric("points_value", { precision: 10, scale:  2 }).notNull(),
+	pointsRedeemed: numeric("points_redeemed", { precision: 10, scale:  2 }).notNull(),
+	quantity: integer().notNull(),
+	reward: text(),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	createdBy: text("created_by"),
+}, (table) => [
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [redemptionRequest.requestId],
+			name: "redemption_reward_lines_request_id_fkey"
+		}).onDelete("cascade"),
 ]);
 
 export const notificationLog = pgTable("notification_log", {
@@ -418,6 +432,40 @@ export const retailer = pgTable("retailer", {
 	unique("Retailer_user_id_key").on(table.userId),
 ]);
 
+export const userMaster = pgTable("user_master", {
+	userId: serial("user_id").primaryKey().notNull(),
+	username: varchar({ length: 255 }),
+	email: varchar({ length: 255 }),
+	password: varchar({ length: 255 }),
+	mobileNumber: varchar("mobile_number", { length: 20 }).notNull(),
+	secondaryMobileNumber: varchar("secondary_mobile_number", { length: 20 }),
+	userType: varchar("user_type", { length: 50 }).notNull(),
+	roleId: integer("role_id"),
+	isActive: boolean("is_active").default(true),
+	bankAccountName: varchar("bank_account_name", { length: 255 }),
+	accountNumber: varchar("account_number", { length: 50 }),
+	ifscCode: varchar("ifsc_code", { length: 20 }),
+	upi: varchar({ length: 100 }),
+	totalPoints: numeric("total_points", { precision: 15, scale:  2 }).default('0'),
+	balancePoints: numeric("balance_points", { precision: 15, scale:  2 }).default('0'),
+	redeemedPoints: numeric("redeemed_points", { precision: 15, scale:  2 }).default('0'),
+	fcmToken: text("fcm_token"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
+	deviceDetails: jsonb("device_details"),
+	profileImage: text("profile_image"),
+}, (table) => [
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [userRoles.roleId],
+			name: "user_master_role_id_fkey"
+		}),
+	unique("user_master_email_key").on(table.email),
+	unique("user_master_mobile_number_key").on(table.mobileNumber),
+	unique("user_master_secondary_mobile_number_key").on(table.secondaryMobileNumber),
+]);
+
 export const salesperson = pgTable("salesperson", {
 	salespersonId: serial("salesperson_id").primaryKey().notNull(),
 	userId: integer("user_id").notNull(),
@@ -445,39 +493,6 @@ export const salesperson = pgTable("salesperson", {
 		}),
 	unique("salesperson_user_id_key").on(table.userId),
 	unique("salesperson_navision_id_key").on(table.navisionId),
-]);
-
-export const userMaster = pgTable("user_master", {
-	userId: serial("user_id").primaryKey().notNull(),
-	username: varchar({ length: 255 }),
-	email: varchar({ length: 255 }),
-	password: varchar({ length: 255 }),
-	mobileNumber: varchar("mobile_number", { length: 20 }).notNull(),
-	secondaryMobileNumber: varchar("secondary_mobile_number", { length: 20 }),
-	userType: varchar("user_type", { length: 50 }).notNull(),
-	roleId: integer("role_id"),
-	isActive: boolean("is_active").default(true),
-	bankAccountName: varchar("bank_account_name", { length: 255 }),
-	accountNumber: varchar("account_number", { length: 50 }),
-	ifscCode: varchar("ifsc_code", { length: 20 }),
-	upi: varchar({ length: 100 }),
-	totalPoints: numeric("total_points", { precision: 15, scale:  2 }).default('0'),
-	balancePoints: numeric("balance_points", { precision: 15, scale:  2 }).default('0'),
-	redeemedPoints: numeric("redeemed_points", { precision: 15, scale:  2 }).default('0'),
-	fcmToken: text("fcm_token"),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
-	deviceDetails: jsonb("device_details"),
-}, (table) => [
-	foreignKey({
-			columns: [table.roleId],
-			foreignColumns: [userRoles.roleId],
-			name: "user_master_role_id_fkey"
-		}),
-	unique("user_master_email_key").on(table.email),
-	unique("user_master_mobile_number_key").on(table.mobileNumber),
-	unique("user_master_secondary_mobile_number_key").on(table.secondaryMobileNumber),
 ]);
 
 export const navisionRetailMaster = pgTable("navision_retail_master", {

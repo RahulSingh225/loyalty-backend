@@ -53,24 +53,23 @@ class UserRepository extends BaseRepository {
   async onBoardRetailer(userData: any): Promise<any> {
      const result:any = await this.db.execute(
       sql`SELECT * FROM public.onboard_retailer(
-            ${userData.username},
-            ${userData.mobile_number},
-            ${userData.secondary_mobile_number},
-            ${userData.hashedPassword},
-            ${userData.shop_name},
-            ${userData.shop_address},
-            ${userData.home_address},
-            ${userData.work_address},
-            ${userData.pan},
-            ${userData.aadhaar},
-            ${userData.gstin},
-            ${userData.pin_code},
-            ${userData.city},
-            ${userData.state},
-            ${'retailer'},
-            ${userData.fcm_token},
-            ${JSON.stringify(userData.device_details)}::jsonb
-          )`
+    ${userData.username},
+    ${userData.mobile_number},
+    ${userData.secondary_mobile_number},
+    ${userData.hashedPassword||null},
+    ${userData.shop_name},
+    ${userData.shop_address},
+    ${userData.pan},
+    ${userData.aadhaar||null},
+    ${userData.gstin||null},
+    ${userData.pin_code},
+    ${userData.city},
+    ${userData.state},
+    'retailer',
+    ${userData.fcm_token||null},
+    ${userData.navision_id || null},
+    ${JSON.stringify(userData.device_details)}::jsonb
+)`
     );
     console.log('Onboard Retailer Result:', result);
     logger.info('Retailer onboarded', { user_id: result.rows[0].onboard_retailer });

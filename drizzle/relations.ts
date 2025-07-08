@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { userMaster, pointAllocationLog, transaction, redemptionRequest, distributor, notificationLog, retailer, salesperson, userRoles, permissions, rolePermissions } from "./schema";
+import { userMaster, pointAllocationLog, transaction, redemptionRequest, distributor, redemptionRewardLines, notificationLog, retailer, userRoles, salesperson, permissions, rolePermissions } from "./schema";
 
 export const pointAllocationLogRelations = relations(pointAllocationLog, ({one}) => ({
 	userMaster_adminApprovedBy: one(userMaster, {
@@ -34,11 +34,11 @@ export const userMasterRelations = relations(userMaster, ({one, many}) => ({
 	distributors: many(distributor),
 	notificationLogs: many(notificationLog),
 	retailers: many(retailer),
-	salespeople: many(salesperson),
 	userRole: one(userRoles, {
 		fields: [userMaster.roleId],
 		references: [userRoles.roleId]
 	}),
+	salespeople: many(salesperson),
 }));
 
 export const transactionRelations = relations(transaction, ({one}) => ({
@@ -48,11 +48,12 @@ export const transactionRelations = relations(transaction, ({one}) => ({
 	}),
 }));
 
-export const redemptionRequestRelations = relations(redemptionRequest, ({one}) => ({
+export const redemptionRequestRelations = relations(redemptionRequest, ({one, many}) => ({
 	userMaster: one(userMaster, {
 		fields: [redemptionRequest.userId],
 		references: [userMaster.userId]
 	}),
+	redemptionRewardLines: many(redemptionRewardLines),
 }));
 
 export const distributorRelations = relations(distributor, ({one, many}) => ({
@@ -62,6 +63,13 @@ export const distributorRelations = relations(distributor, ({one, many}) => ({
 	}),
 	retailers: many(retailer),
 	salespeople: many(salesperson),
+}));
+
+export const redemptionRewardLinesRelations = relations(redemptionRewardLines, ({one}) => ({
+	redemptionRequest: one(redemptionRequest, {
+		fields: [redemptionRewardLines.requestId],
+		references: [redemptionRequest.requestId]
+	}),
 }));
 
 export const notificationLogRelations = relations(notificationLog, ({one}) => ({
@@ -82,6 +90,11 @@ export const retailerRelations = relations(retailer, ({one}) => ({
 	}),
 }));
 
+export const userRolesRelations = relations(userRoles, ({many}) => ({
+	userMasters: many(userMaster),
+	rolePermissions: many(rolePermissions),
+}));
+
 export const salespersonRelations = relations(salesperson, ({one}) => ({
 	distributor: one(distributor, {
 		fields: [salesperson.distributorId],
@@ -91,11 +104,6 @@ export const salespersonRelations = relations(salesperson, ({one}) => ({
 		fields: [salesperson.userId],
 		references: [userMaster.userId]
 	}),
-}));
-
-export const userRolesRelations = relations(userRoles, ({many}) => ({
-	userMasters: many(userMaster),
-	rolePermissions: many(rolePermissions),
 }));
 
 export const rolePermissionsRelations = relations(rolePermissions, ({one}) => ({
