@@ -1,6 +1,6 @@
 import { and, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
-import { distributor, retailer, salesPointLedgerEntry, userMaster } from "../db/schema";
+import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, retailer, salesPointLedgerEntry, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
 import BaseRepository from "./base.repository";
@@ -302,12 +302,23 @@ const user = result.rows[0].login_user;
     } else if (param.userType === 'distributor') {
       // Assuming distributors might have a sales code association in userMaster or another table
       // Since the exact field isn't specified, using a placeholder condition
-      return await this.db.select(userMaster)
+      return await this.db.selectDistinct({
+        shopName:distributor.distributorName,
+        userId:distributor.userId,
+        whatsappNo:distributor.phoneNumber,
+        navisionId:distributor.navisionId
+      })
         .from(userMaster)
         .innerJoin(distributor, eq(userMaster.userId, distributor.userId))
+        .innerJoin(navisionCustomerMaster,eq(distributor.navisionId,navisionCustomerMaster.salesAgent))
+        .innerJoin(navisionRetailMaster,eq(distributor.navisionId,navisionRetailMaster.agentCode))
         .where(and(
           eq(userMaster.userType, 'distributor'),
-          inArray(distributor.salesPersonCode, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`) // Adjust this field name as per actual schema
+          or(
+          inArray(navisionCustomerMaster.salespersonCode,sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+          inArray(navisionRetailMaster.salesPersonCode,sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`)
+          )
+           // Adjust this field name as per actual schema
         ));
     } else {
       throw new Error('Invalid userType for sales');
