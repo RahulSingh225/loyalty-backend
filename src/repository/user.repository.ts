@@ -297,7 +297,8 @@ const user = result.rows[0].login_user;
         .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
         .where(and(
           eq(userMaster.userType, 'retailer'),
-          inArray(retailer.salesAgentCodee, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`)
+          inArray(retailer.salesAgentCodee, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+          inArray(retailer.distributorId,sql `(${param.distributorId})`)
         ));
     } else if (param.userType === 'distributor') {
       // Assuming distributors might have a sales code association in userMaster or another table

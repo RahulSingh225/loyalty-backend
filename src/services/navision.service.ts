@@ -3,7 +3,7 @@ import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, nav
 import { db, pool } from './db.service';
 import dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
-import {  and, eq, inArray, isNotNull, ne, sql, sum } from 'drizzle-orm';
+import {  and, eq, inArray, isNotNull, ne, or, sql, sum } from 'drizzle-orm';
 import { PoolClient } from 'pg';
 import { GlobalState } from '../configs/config';
     type VendorInsert = typeof navisionVendorMaster.$inferInsert;
@@ -1246,7 +1246,9 @@ async  mapDist() {
     const navEntries = await db
       .select()
       .from(navisionRetailMaster)
-      .where(inArray(navisionRetailMaster.no, navIds));
+      .where(
+        inArray(navisionRetailMaster.no, navIds,
+      ));
 
     // Create a map for quick lookup
     const navEntryMap = new Map(
@@ -1292,6 +1294,88 @@ async  mapDist() {
   }
 }
 
+
+async  mapDist2(){
+
+  try {
+    // Fetch all retailer navision IDs
+    const retailerNav = await db
+      .select({ navId: retailer.navisionId })
+      .from(retailer);
+
+    // Process each retailer navision ID
+    for (const n of retailerNav) {
+      const navId = n.navId;
+
+      // Check navisionCustomerMaster
+      const customerEntry = await db
+        .select()
+        .from(navisionCustomerMaster)
+        .where(eq(navisionCustomerMaster.no, navId));
+
+      if (customerEntry.length) {
+        await db
+          .update(retailer)
+          .set({
+            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${customerEntry[0].salesAgent})`,
+          })
+          .where(
+            and(
+              eq(retailer.navisionId, navId),
+              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${customerEntry[0].salesAgent})`
+            )
+          );
+        continue; // Move to the next retailer
+      }
+
+      // Check navisionRetailMaster
+      const retailerEntry = await db
+        .select()
+        .from(navisionRetailMaster)
+        .where(eq(navisionRetailMaster.no, navId));
+
+      if (retailerEntry.length) {
+        await db
+          .update(retailer)
+          .set({
+            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${retailerEntry[0].agentCode})`,
+          })
+          .where(
+            and(
+              eq(retailer.navisionId, navId),
+              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${retailerEntry[0].agentCode})`
+            )
+          );
+        continue; // Move to the next retailer
+      }
+
+      // Check navisionNotifyCustomer
+      const notifyEntry = await db
+        .select()
+        .from(navisionNotifyCustomer)
+        .where(eq(navisionNotifyCustomer.no, navId));
+
+      if (notifyEntry.length) {
+        await db
+          .update(retailer)
+          .set({
+            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${notifyEntry[0].salesAgent})`,
+          })
+          .where(
+            and(
+              eq(retailer.navisionId, navId),
+              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${notifyEntry[0].salesAgent})`
+            )
+          );
+      }
+    }
+
+    console.log('Successfully updated retailer distributor IDs');
+  } catch (error) {
+    console.error('Error in mapDist2:', error);
+    throw new Error(`Failed to update retailers: ${error.message}`);
+  }
+}
 
 async mapSalesPerson() {
   try {
