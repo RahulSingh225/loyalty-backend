@@ -293,19 +293,19 @@ const user = result.rows[0].login_user;
   whatsappNo: retailer.whatsappNo,
   navisionId: retailer.navisionId
 })
-        .from(userMaster)
-        .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
-        .where(and(
-          eq(userMaster.userType, 'retailer'),
-          inArray(retailer.salesAgentCodee, sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
-          inArray(retailer.distributorId,sql `(${param.distributorId})`)
-        ));
+  .from(userMaster)
+  .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
+  .where(and(
+    eq(userMaster.userType, 'retailer'),
+    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+    ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
+  ));
     } else if (param.userType === 'distributor') {
       // Assuming distributors might have a sales code association in userMaster or another table
       // Since the exact field isn't specified, using a placeholder condition
       return await this.db.selectDistinct({
         shopName:distributor.distributorName,
-        userId:distributor.userId,
+        userId:distributor.distributorId,
         whatsappNo:distributor.phoneNumber,
         navisionId:distributor.navisionId
       })
