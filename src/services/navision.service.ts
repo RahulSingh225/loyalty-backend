@@ -1295,82 +1295,76 @@ async  mapDist() {
 }
 
 
-async  mapDist2(){
-
+async  mapDist2() {
   try {
-    // Fetch all retailer navision IDs
-    const retailerNav = await db
-      .select({ navId: retailer.navisionId })
+    // Fetch all retailer navision IDs in batches
+    const BATCH_SIZE = 1000;
+    let offset = 0;
+    let allRetailers = [];
+
+    // Get total count for pagination
+    const [{ count }] = await db
+      .select({ count: sql`COUNT(*)` })
       .from(retailer);
 
-    // Process each retailer navision ID
-    for (const n of retailerNav) {
-      const navId = n.navId;
+    // Fetch retailers in batches
+    while (offset < Number(count)) {
+      const retailers = await db
+        .select({ navId: retailer.navisionId })
+        .from(retailer)
+        .limit(BATCH_SIZE)
+        .offset(offset);
+      
+      allRetailers = allRetailers.concat(retailers);
+      offset += BATCH_SIZE;
+    }
 
-      // Check navisionCustomerMaster
-      const customerEntry = await db
-        .select()
-        .from(navisionCustomerMaster)
-        .where(eq(navisionCustomerMaster.no, navId));
+    // Fetch all relevant data from lookup tables in single queries
+    const [customerEntries, retailEntries, notifyEntries] = await Promise.all([
+      db.select().from(navisionCustomerMaster),
+      db.select().from(navisionRetailMaster),
+      db.select().from(navisionNotifyCustomer)
+    ]);
 
-      if (customerEntry.length) {
-        await db
-          .update(retailer)
-          .set({
-            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${customerEntry[0].salesAgent})`,
-          })
-          .where(
-            and(
-              eq(retailer.navisionId, navId),
-              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${customerEntry[0].salesAgent})`
-            )
-          );
-        continue; // Move to the next retailer
+    // Create maps for faster lookup
+    const customerMap = new Map(customerEntries.map(entry => [entry.no, entry.salesAgent]));
+    const retailMap = new Map(retailEntries.map(entry => [entry.no, entry.agentCode]));
+    const notifyMap = new Map(notifyEntries.map(entry => [entry.no, entry.salesAgent]));
+
+    // Process updates in batches
+    const updatePromises = [];
+    for (const { navId } of allRetailers) {
+      let distributorIdQuery = null;
+
+      if (customerMap.has(navId)) {
+        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${customerMap.get(navId)})`;
+      } else if (retailMap.has(navId)) {
+        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${retailMap.get(navId)})`;
+      } else if (notifyMap.has(navId)) {
+        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${notifyMap.get(navId)})`;
       }
 
-      // Check navisionRetailMaster
-      const retailerEntry = await db
-        .select()
-        .from(navisionRetailMaster)
-        .where(eq(navisionRetailMaster.no, navId));
-
-      if (retailerEntry.length) {
-        await db
+      if (distributorIdQuery) {
+        const updatePromise = db
           .update(retailer)
-          .set({
-            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${retailerEntry[0].agentCode})`,
-          })
+          .set({ distributorId: distributorIdQuery })
           .where(
             and(
               eq(retailer.navisionId, navId),
-              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${retailerEntry[0].agentCode})`
+              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${
+                customerMap.get(navId) || retailMap.get(navId) || notifyMap.get(navId)
+              })`
             )
           );
-        continue; // Move to the next retailer
-      }
-
-      // Check navisionNotifyCustomer
-      const notifyEntry = await db
-        .select()
-        .from(navisionNotifyCustomer)
-        .where(eq(navisionNotifyCustomer.no, navId));
-
-      if (notifyEntry.length) {
-        await db
-          .update(retailer)
-          .set({
-            distributorId: sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${notifyEntry[0].salesAgent})`,
-          })
-          .where(
-            and(
-              eq(retailer.navisionId, navId),
-              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${notifyEntry[0].salesAgent})`
-            )
-          );
+        updatePromises.push(updatePromise);
       }
     }
 
-    console.log('Successfully updated retailer distributor IDs');
+    // Execute all updates concurrently
+    await Promise.all(updatePromises);
+
+    console.log(`Successfully updated ${updatePromises.length} retailer distributor IDs`);
+    return { updatedCount: updatePromises.length };
   } catch (error) {
     console.error('Error in mapDist2:', error);
     throw new Error(`Failed to update retailers: ${error.message}`);

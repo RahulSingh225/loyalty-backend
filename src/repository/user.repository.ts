@@ -1,9 +1,10 @@
-import { and, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
+import { and, eq, exists, inArray, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
-import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, retailer, salesPointLedgerEntry, userMaster } from "../db/schema";
+import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, navisionVendorMaster, retailer, salesperson, salesPointLedgerEntry, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
 import BaseRepository from "./base.repository";
+import { GlobalState } from "../configs/config";
 
 
 /**
@@ -264,65 +265,213 @@ const user = result.rows[0].login_user;
       .from(userMaster)
       .where(eq(userMaster.userType, param.userType));
 
-  case 'distributor':
+case 'distributor':
     console.log('Listing users for distributor:', authUser); 
-      const dist = await this.db.select().from(distributor).where(eq(distributor.userId, authUser.userId));
-      console.log('Distributor details:', dist);
-      if (dist.length === 0) {
+    const dist = await this.db.select().from(distributor).where(eq(distributor.userId, authUser.userId));
+    console.log('Distributor details:', dist);
+    if (dist.length === 0) {
         return [];
-      }
-    return await this.db.select({
-  shopName: retailer.shopName,
-  userId: retailer.userId,
-  whatsappNo: retailer.whatsappNo,
-  navisionId: retailer.navisionId
-})
-      .from(userMaster)
-      .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
-      .where(and(
-        eq(userMaster.userType, 'retailer'),
-        eq(retailer.distributorId, dist[0].distributorId)
-      ));
+    }
+    
+    let query = this.db.select({
+        shopName: retailer.shopName,
+        userId: retailer.userId,
+        whatsappNo: retailer.whatsappNo,
+        navisionId: retailer.navisionId
+    })
+    .from(userMaster)
+    .innerJoin(retailer, eq(userMaster.userId, retailer.userId));
+    
+    if (param.filter === 'retailer') {
+        query = query
+            .innerJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no))
+            .where(and(
+                eq(userMaster.userType, 'retailer'),
+                eq(retailer.distributorId, dist[0].distributorId),
+                exists(
+                    this.db.select()
+                        .from(navisionRetailMaster)
+                        .where(eq(navisionRetailMaster.no, retailer.navisionId))
+                )
+            ));
+    } else if (param.filter === 'pointsClaim') {
+        // Select pointClaimCustomerType along with other fields
+        const vendorResult = await this.db.select({
+            pointClaimCustomerType: navisionVendorMaster.pointClaimCustomerType
+        })
+        .from(navisionVendorMaster)
+        .where(eq(navisionVendorMaster.no, dist[0].navisionId))
+        .limit(1);
+
+        if (vendorResult.length === 0) {
+            return [];
+        }
+
+        const pointClaimCustomerType = vendorResult[0].pointClaimCustomerType;
+        console.log(pointClaimCustomerType)
+        query = query
+            .innerJoin(distributor, eq(retailer.distributorId, distributor.distributorId))
+            .innerJoin(navisionVendorMaster, eq(distributor.navisionId, navisionVendorMaster.no))
+            .where(and(
+                eq(userMaster.userType, 'retailer'),
+                eq(retailer.distributorId, dist[0].distributorId)
+            ));
+        
+        if (pointClaimCustomerType === 'All') {
+            // No additional filtering needed, show all data
+        } else if (pointClaimCustomerType === 'Retailer') {
+            query = query
+                .innerJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no));
+        } else if (pointClaimCustomerType === 'Both') {
+            query = query
+                .leftJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no))
+                .leftJoin(navisionCustomerMaster, eq(retailer.navisionId, navisionCustomerMaster.no))
+                .where(or(
+                    eq(retailer.navisionId, navisionRetailMaster.no),
+                    eq(retailer.navisionId, navisionCustomerMaster.no)
+                ));
+        } else if (pointClaimCustomerType === 'Customer') {
+            query = query
+                .innerJoin(navisionCustomerMaster, eq(retailer.navisionId, navisionCustomerMaster.no));
+        } else if (pointClaimCustomerType === 'Notify Customer') {
+            query = query
+                .innerJoin(navisionNotifyCustomer, eq(retailer.navisionId, navisionNotifyCustomer.no));
+        }
+    } else {
+        query = query.where(and(
+            eq(userMaster.userType, 'retailer'),
+            eq(retailer.distributorId, dist[0].distributorId)
+        ));
+    }
+    
+    return await query;
+
 
   case 'sales':
     if (param.userType === 'retailer') {
-      console.log(authUser)
-      return await this.db.select({
-  shopName: retailer.shopName,
-  userId: retailer.userId,
-  whatsappNo: retailer.whatsappNo,
-  navisionId: retailer.navisionId
-})
-  .from(userMaster)
-  .innerJoin(retailer, eq(userMaster.userId, retailer.userId))
-  .where(and(
-    eq(userMaster.userType, 'retailer'),
-    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
-    ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
-  ));
+        console.log(authUser);
+        let query = this.db.select({
+            shopName: retailer.shopName,
+            userId: retailer.userId,
+            whatsappNo: retailer.whatsappNo,
+            navisionId: retailer.navisionId
+        })
+        .from(userMaster)
+        .innerJoin(retailer, eq(userMaster.userId, retailer.userId));
+
+        if (param.filter === 'retailer') {
+            query = query
+                .innerJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no))
+                .where(and(
+                    eq(userMaster.userType, 'retailer'),
+                    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                    exists(
+                        this.db.select()
+                            .from(navisionRetailMaster)
+                            .where(eq(navisionRetailMaster.no, retailer.navisionId))
+                    ),
+                    ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
+                ));
+        } else if (param.filter === 'pointsClaim') {
+            // Fetch distributorId and navisionId by joining distributor with navisionCustomerMaster or navisionRetailMaster
+            const dist = await this.db.selectDistinct({
+                distributorId: distributor.distributorId,
+                navisionId: distributor.navisionId
+            })
+            .from(distributor)
+            .leftJoin(navisionCustomerMaster, eq(distributor.navisionId, navisionCustomerMaster.salesAgent))
+            .leftJoin(navisionRetailMaster, eq(distributor.navisionId, navisionRetailMaster.agentCode))
+            .innerJoin(salesperson, or(
+                eq(navisionCustomerMaster.salespersonCode, salesperson.navisionId),
+                eq(navisionRetailMaster.salesPersonCode, salesperson.navisionId)
+            ))
+            .where(and(
+                eq(salesperson.userId, authUser.userId),
+                or(
+                    eq(distributor.navisionId, navisionCustomerMaster.salesAgent),
+                    eq(distributor.navisionId, navisionRetailMaster.agentCode)
+                )
+            ))
+            .limit(1);
+
+            if (dist.length === 0) {
+                return [];
+            }
+
+            // Fetch pointClaimCustomerType
+            const vendorResult = await this.db.select({
+                pointClaimCustomerType: navisionVendorMaster.pointClaimCustomerType
+            })
+            .from(navisionVendorMaster)
+            .where(eq(navisionVendorMaster.no, dist[0].navisionId))
+            .limit(1);
+
+            if (vendorResult.length === 0) {
+                return [];
+            }
+
+            const pointClaimCustomerType = vendorResult[0].pointClaimCustomerType;
+
+            query = query
+                .innerJoin(distributor, eq(retailer.distributorId, distributor.distributorId))
+                .innerJoin(navisionVendorMaster, eq(distributor.navisionId, navisionVendorMaster.no))
+                .where(and(
+                    eq(userMaster.userType, 'retailer'),
+                    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                    ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
+                ));
+
+            if (pointClaimCustomerType === 'All') {
+                // No additional filtering needed, show all data
+            } else if (pointClaimCustomerType === 'Retailer') {
+                query = query
+                    .innerJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no));
+            } else if (pointClaimCustomerType === 'Both') {
+                query = query
+                    .leftJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no))
+                    .leftJoin(navisionCustomerMaster, eq(retailer.navisionId, navisionCustomerMaster.no))
+                    .where(or(
+                        eq(retailer.navisionId, navisionRetailMaster.no),
+                        eq(retailer.navisionId, navisionCustomerMaster.no)
+                    ));
+            } else if (pointClaimCustomerType === 'Customer') {
+                query = query
+                    .innerJoin(navisionCustomerMaster, eq(retailer.navisionId, navisionCustomerMaster.no));
+            } else if (pointClaimCustomerType === 'Notify Customer') {
+                query = query
+                    .innerJoin(navisionNotifyCustomer, eq(retailer.navisionId, navisionNotifyCustomer.no));
+            }
+        } else {
+            query = query.where(and(
+                eq(userMaster.userType, 'retailer'),
+                inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
+            ));
+        }
+
+        return await query;
     } else if (param.userType === 'distributor') {
-      // Assuming distributors might have a sales code association in userMaster or another table
-      // Since the exact field isn't specified, using a placeholder condition
-      return await this.db.selectDistinct({
-        shopName:distributor.distributorName,
-        userId:distributor.distributorId,
-        whatsappNo:distributor.phoneNumber,
-        navisionId:distributor.navisionId
-      })
+        // Assuming distributors might have a sales code association in userMaster or another table
+        // Since the exact field isn't specified, using a placeholder condition
+        return await this.db.selectDistinct({
+            shopName: distributor.distributorName,
+            userId: distributor.distributorId,
+            whatsappNo: distributor.phoneNumber,
+            navisionId: distributor.navisionId
+        })
         .from(userMaster)
         .innerJoin(distributor, eq(userMaster.userId, distributor.userId))
-        .innerJoin(navisionCustomerMaster,eq(distributor.navisionId,navisionCustomerMaster.salesAgent))
-        .innerJoin(navisionRetailMaster,eq(distributor.navisionId,navisionRetailMaster.agentCode))
+        .innerJoin(navisionCustomerMaster, eq(distributor.navisionId, navisionCustomerMaster.salesAgent))
+        .innerJoin(navisionRetailMaster, eq(distributor.navisionId, navisionRetailMaster.agentCode))
         .where(and(
-          eq(userMaster.userType, 'distributor'),
-          or(
-          inArray(navisionCustomerMaster.salespersonCode,sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
-          inArray(navisionRetailMaster.salesPersonCode,sql `(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`)
-          )
-           // Adjust this field name as per actual schema
+            eq(userMaster.userType, 'distributor'),
+            or(
+                inArray(navisionCustomerMaster.salespersonCode, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                inArray(navisionRetailMaster.salesPersonCode, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`)
+            )
         ));
     } else {
-      throw new Error('Invalid userType for sales');
+        throw new Error('Invalid userType for sales');
     }
 
   default:
@@ -339,15 +488,29 @@ const user = result.rows[0].login_user;
   }).from(salesPointLedgerEntry).where(
     and(
       or(
-        eq(salesPointLedgerEntry.customerNo, 'C00001'),
-        eq(salesPointLedgerEntry.retailerNo, 'C00001'),
-        eq(salesPointLedgerEntry.notifyCustomerNo, 'C00001')
+        eq(salesPointLedgerEntry.customerNo, usercode),
+        eq(salesPointLedgerEntry.retailerNo, usercode),
+        eq(salesPointLedgerEntry.notifyCustomerNo, usercode)
       ),
-      ne(salesPointLedgerEntry.documentType, 'Claim')
+      ne(salesPointLedgerEntry.documentType, 'Claim'),
+      eq(salesPointLedgerEntry.scheme,GlobalState.schemeFilter)
     )
   ).groupBy(salesPointLedgerEntry.itemGroup)
     console.log('Get Point Summary Result:', result);
-    return result
+     const totalEntry = result.reduce(
+    (acc, curr) => ({
+      groupName: 'Total',
+      totalUnits: acc.totalUnits + Number(curr.totalUnits),
+      totalPoints: acc.totalPoints + Number(curr.totalPoints),
+    }),
+    { groupName: 'Total', totalUnits: 0, totalPoints: 0 }
+  );
+
+  // Append total entry to result set
+  const finalResult = [...result, totalEntry];
+
+  console.log('Get Point Summary Result:', finalResult);
+  return finalResult;
   }
 }
 export default UserRepository;

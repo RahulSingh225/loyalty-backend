@@ -32,7 +32,8 @@ export default class TransactionRepository {
           eq(salesPointLedgerEntry.notifyCustomerNo,userCode[0].navisionId) ,
           eq(salesPointLedgerEntry.agentCode,userCode[0].navisionId)
           
-        )
+        ),
+        eq(salesPointLedgerEntry.customerIsAgent,false)
       ))
 
 console.log(result.length)
@@ -40,8 +41,8 @@ console.log(result.length)
        userType: userId.userType,
        status:'completed',
         processedAt: entry.createdAt,
-        firstParty: entry.customerName || entry.retailerName || entry.notifyCustomerName,
-        secondParty: entry.agentName,
+        firstParty: userId.userType =='retailer'? entry.customerName || entry.retailerName || entry.notifyCustomerName:entry.agentName,
+        secondParty: userId.userType =='retailer'?entry.agentName:entry.customerName || entry.retailerName || entry.notifyCustomerName,
         documentType: entry.documentType,
         entryType: Number(entry.salesPoints)>0?'CREDIT':'DEBIT',
         points: entry.salesPoints
@@ -52,5 +53,7 @@ console.log(result.length)
 
         
     }
+
+    
 
 }

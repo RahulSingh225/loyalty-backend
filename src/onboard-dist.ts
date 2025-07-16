@@ -26,7 +26,7 @@ async function onboardDistributors(): Promise<void> {
     const vendors = await db
       .select()
       .from(navisionVendorMaster)
-      .where(eq(navisionVendorMaster.onboarded, false));
+      .where(eq(navisionVendorMaster.no, 'AG0014'));
 
     if (!vendors.length) {
       console.log('No vendors to onboard.');

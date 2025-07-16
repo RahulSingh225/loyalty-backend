@@ -106,10 +106,11 @@ class App {
     //await nav.syncCustomer();
     //await nav.syncRetail()
      //await nav.syncSalesLedger()
-     // await nav.syncSalesClaimTransfer()
+      //await nav.syncSalesClaimTransfer()
     // await nav.syncSalesPersonList()
      //await nav.syncRetailerReward();
      //await nav.syncRedemptionRequest();
+     //await nav.syncVendor()
     //await nav.totalPoints();
     //await nav.claimPoints();
     //await nav.balancePoints();
