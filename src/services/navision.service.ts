@@ -115,7 +115,15 @@ interface OnboardResult {
   retailer_id?: number;
   error?: string;
 }
-
+interface NavisionMapping {
+  no: string;
+  agent: string;
+  source: 'retail' | 'customer' | 'notify';
+}
+interface UpdateResult {
+  updatedCount: number;
+  skippedNavIds: { navId: string; reason: string; source?: string; agent?: string }[];
+}
 class NavisionService {
   
   constructor() {
@@ -1295,79 +1303,146 @@ async  mapDist() {
 }
 
 
-async  mapDist2() {
+
+
+async  mapDist2(): Promise<UpdateResult> {
   try {
-    // Fetch all retailer navision IDs in batches
-    const BATCH_SIZE = 1000;
-    let offset = 0;
-    let allRetailers = [];
+    // Start a transaction
+    const result = await db.transaction(async (tx) => {
+      // Reset retailer.distributor_id to NULL to avoid stale data
+      await tx.update(retailer).set({ distributorId: null });
 
-    // Get total count for pagination
-    const [{ count }] = await db
-      .select({ count: sql`COUNT(*)` })
-      .from(retailer);
+      // Fetch all retailer navision IDs in batches
+      const BATCH_SIZE = 1000;
+      let offset = 0;
+      let allRetailers: { navId: string }[] = [];
 
-    // Fetch retailers in batches
-    while (offset < Number(count)) {
-      const retailers = await db
-        .select({ navId: retailer.navisionId })
-        .from(retailer)
-        .limit(BATCH_SIZE)
-        .offset(offset);
-      
-      allRetailers = allRetailers.concat(retailers);
-      offset += BATCH_SIZE;
-    }
+      // Get total count for pagination
+      const [countResult]: { count: number }[] = await tx
+        .select({ count: sql`COUNT(*)`.mapWith(Number) })
+        .from(retailer);
 
-    // Fetch all relevant data from lookup tables in single queries
-    const [customerEntries, retailEntries, notifyEntries] = await Promise.all([
-      db.select().from(navisionCustomerMaster),
-      db.select().from(navisionRetailMaster),
-      db.select().from(navisionNotifyCustomer)
-    ]);
+      const count = countResult.count; // Safe, as COUNT(*) always returns one row
 
-    // Create maps for faster lookup
-    const customerMap = new Map(customerEntries.map(entry => [entry.no, entry.salesAgent]));
-    const retailMap = new Map(retailEntries.map(entry => [entry.no, entry.agentCode]));
-    const notifyMap = new Map(notifyEntries.map(entry => [entry.no, entry.salesAgent]));
+      // Fetch retailers in batches
+      while (offset < count) {
+        const retailers = await tx
+          .select({ navId: retailer.navisionId })
+          .from(retailer)
+          .limit(BATCH_SIZE)
+          .offset(offset);
 
-    // Process updates in batches
-    const updatePromises = [];
-    for (const { navId } of allRetailers) {
-      let distributorIdQuery = null;
-
-      if (customerMap.has(navId)) {
-        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${customerMap.get(navId)})`;
-      } else if (retailMap.has(navId)) {
-        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${retailMap.get(navId)})`;
-      } else if (notifyMap.has(navId)) {
-        distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${notifyMap.get(navId)})`;
+        allRetailers = allRetailers.concat(retailers);
+        offset += BATCH_SIZE;
       }
 
-      if (distributorIdQuery) {
-        const updatePromise = db
-          .update(retailer)
-          .set({ distributorId: distributorIdQuery })
-          .where(
-            and(
-              eq(retailer.navisionId, navId),
-              sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${
-                customerMap.get(navId) || retailMap.get(navId) || notifyMap.get(navId)
-              })`
-            )
-          );
-        updatePromises.push(updatePromise);
+      // Fetch all distributor navision IDs for validation
+      const distributorIds = await tx
+        .select({ navisionId: distributor.navisionId })
+        .from(distributor)
+        .where(eq(distributor.navisionId,'AG0014'))
+      const validDistributorIds = new Set(
+        distributorIds.map((d) => d.navisionId?.trim().toUpperCase() ?? '')
+      );
+
+      // Fetch all mappings from Navision tables using UNION ALL, prioritizing navision_retail_master
+      const navisionMappings: any[] = await tx
+        .select({
+          no: sql<string>`"No"`,
+          agent: sql<string>`"Agent_Code"`,
+          source: sql`'retail'`.as('source'),
+        })
+        .from(navisionRetailMaster)
+        .unionAll(
+          tx
+            .select({
+              no: navisionCustomerMaster.no,
+              agent: navisionCustomerMaster.salesAgent,
+              source: sql`'customer'`,
+            })
+            .from(navisionCustomerMaster)
+        )
+        .unionAll(
+          tx
+            .select({
+              no: navisionNotifyCustomer.no,
+              agent: navisionNotifyCustomer.salesAgent,
+              source: sql`'notify'`,
+            })
+            .from(navisionNotifyCustomer)
+        );
+
+      // Create map with normalized keys and values
+      const navisionMap = new Map<string, NavisionMapping>();
+      for (const mapping of navisionMappings) {
+        const normalizedNo = mapping.no?.trim().toUpperCase() ?? '';
+        // Prioritize retail if multiple mappings exist (shouldn't happen per Query 3)
+        if (!navisionMap.has(normalizedNo) || mapping.source === 'retail') {
+          navisionMap.set(normalizedNo, {
+            no: normalizedNo,
+            agent: mapping.agent?.trim().toUpperCase() ?? '',
+            source: mapping.source,
+          });
+        }
       }
-    }
 
-    // Execute all updates concurrently
-    await Promise.all(updatePromises);
+      // Process updates and track skipped navIds
+      const updatePromises: { navId: string; source: string; promise: Promise<any> }[] = [];
+      const skippedNavIds: { navId: string; reason: string; source?: string; agent?: string }[] = [];
 
-    console.log(`Successfully updated ${updatePromises.length} retailer distributor IDs`);
-    return { updatedCount: updatePromises.length };
+      for (const { navId } of allRetailers) {
+        const normalizedNavId = navId?.trim().toUpperCase() ?? '';
+        const mapping = navisionMap.get(normalizedNavId);
+
+        if (mapping && mapping.agent && validDistributorIds.has(mapping.agent)) {
+          const distributorIdQuery = sql`(SELECT distributor_id FROM distributor WHERE navision_id = ${mapping.agent})`;
+          const updatePromise = tx
+            .update(retailer)
+            .set({ distributorId: distributorIdQuery })
+            .where(
+              and(
+                eq(retailer.navisionId, navId),
+                sql`EXISTS (SELECT 1 FROM distributor WHERE navision_id = ${mapping.agent})`
+              )
+            );
+          updatePromises.push({ navId, source: mapping.source, promise: updatePromise });
+        } else {
+          skippedNavIds.push({
+            navId,
+            reason: !mapping
+              ? 'No matching entry in any Navision table'
+              : !mapping.agent
+              ? 'Empty agent code in Navision table'
+              : `No distributor found for agent: ${mapping.agent}`,
+            source: mapping?.source,
+            agent: mapping?.agent,
+          });
+        }
+      }
+
+      // Execute all updates concurrently
+      await Promise.all(updatePromises.map((u) => u.promise));
+
+      // Log results
+      console.log(`Successfully updated ${updatePromises.length} retailer distributor IDs`);
+      if (skippedNavIds.length > 0) {
+        console.warn('Skipped navIds:', JSON.stringify(skippedNavIds, null, 2));
+      }
+
+      // Summarize source usage
+      const sourceCounts = updatePromises.reduce((acc, u) => {
+        acc[u.source] = (acc[u.source] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log('Update sources:', sourceCounts);
+
+      return { updatedCount: updatePromises.length, skippedNavIds };
+    });
+
+    return result;
   } catch (error) {
     console.error('Error in mapDist2:', error);
-    throw new Error(`Failed to update retailers: ${error.message}`);
+    throw new Error(`Failed to update retailers: ${(error as Error).message}`);
   }
 }
 

@@ -1,10 +1,9 @@
-// main.ts
-import { db ,pool} from './services/db.service';
-import { navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster } from './db/schema';
-import { sql } from 'drizzle-orm';
+import { db, pool } from './services/db.service';
+import { navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, userMaster } from './db/schema';
+import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { PoolClient } from 'pg';
-
+import fs from 'fs';
 
 interface OnboardData {
   username: string;
@@ -22,9 +21,9 @@ interface OnboardData {
   city: string | null;
   state: string | null;
   user_type: string;
-  navision_id:string;
+  navision_id: string;
   fcm_token: string | null;
-  device_details: object | null; // Changed to object for jsonb
+  device_details: object | null;
 }
 
 interface CustomerMaster {
@@ -44,8 +43,6 @@ interface CustomerMaster {
   salesAgentName: string | null;
   salespersonCode: string | null;
   etag: string | null;
-   
-
   createdAt: string;
   onboarded: boolean;
   onboardedAt: string | null;
@@ -64,8 +61,6 @@ interface NotifyCustomer {
   whatsappNo2: string | null;
   salesAgent: string | null;
   salesAgentName: string | null;
-    
-
   salesPerson: string | null;
   agentCodeVisibility: boolean | null;
   pANNo: string | null;
@@ -100,12 +95,23 @@ interface RetailMaster {
   agentCode: string | null;
 }
 
-// Interface for onboard_retailer return value
+interface LogEntry {
+  rawOutput:any;
+  mobileParam:string;
+  navisionId: string;
+  sourceTable: string;
+  success: boolean;
+  reason: string | null;
+  agentCode: string;
+  whatsappNo: string;
+}
+
 interface OnboardResult {
   success: boolean;
   user_id?: number;
   retailer_id?: number;
   error?: string;
+  message?:string;
 }
 
 // Hash password once (do this securely in production)
@@ -113,7 +119,7 @@ const password = 'default@123';
 let hashedPassword: string;
 
 (async () => {
-  hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
+  hashedPassword = await bcrypt.hash(password, 10);
 })();
 
 // Batch size for concurrent processing
@@ -122,7 +128,7 @@ const BATCH_SIZE = 50;
 // Validate OnboardData before calling the procedure
 function validateOnboardData(data: OnboardData): boolean {
   if (!data.username || !data.mobile_number || !data.shop_name || !data.user_type || !data.password) {
-    console.error(`Validation failed: Missing required fields for ${data.mobile_number || 'unknown'}`);
+    console.error(`Validation failed: Missing required fields for ${data.navision_id || 'unknown'}`);
     return false;
   }
   return true;
@@ -131,7 +137,7 @@ function validateOnboardData(data: OnboardData): boolean {
 // Generic function to call onboard_retailer procedure
 async function callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResult> {
   if (!validateOnboardData(data)) {
-    return { success: false, error: `Invalid data for ${data.mobile_number || 'unknown'}` };
+    return { success: false, error: `Invalid data for navision_id ${data.navision_id || 'unknown'}` };
   }
   try {
     // Log parameters for debugging
@@ -141,10 +147,14 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
       secondary_mobile_number: data.secondary_mobile_number,
       shop_name: data.shop_name,
       user_type: data.user_type,
+      navision_id: data.navision_id,
     });
 
+        const deviceDetailsJson = data.device_details ? JSON.stringify(data.device_details) : null;
+
+
     const result = await client.query<{ result: OnboardResult }>(
-      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,$15,$16) AS result`,
+      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) AS result`,
       [
         data.username,
         data.mobile_number,
@@ -152,7 +162,6 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
         data.password,
         data.shop_name,
         data.shop_address,
-       
         data.pan_id,
         data.aadhar_id,
         data.gst_id,
@@ -160,58 +169,86 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
         data.city,
         data.state,
         data.user_type,
-        data.fcm_token,
+        'test',
         data.navision_id,
-        data.device_details ?? null, // jsonb parameter
+        deviceDetailsJson
       ]
     );
     const onboardResult = result.rows[0]?.result;
     if (onboardResult.success) {
-      console.log(`Successfully onboarded: ${data.mobile_number} (user_id: ${onboardResult.user_id}, retailer_id: ${onboardResult.retailer_id})`);
+      console.log(`Successfully onboarded: ${data.navision_id} (user_id: ${onboardResult.user_id}, retailer_id: ${onboardResult.retailer_id})`);
     } else {
-      console.error(`Failed to onboard ${data.mobile_number}: ${onboardResult.error}`);
+      console.error(`Failed to onboard ${data.navision_id}: ${onboardResult.message}`);
     }
     return onboardResult;
   } catch (err: any) {
-    const errorMessage = `Failed to onboard ${data.mobile_number}: ${err.message}`;
+    const errorMessage = `Failed to onboard ${data.navision_id}: ${err.message}`;
     console.error(errorMessage);
+    fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMessage}\n`);
     return { success: false, error: errorMessage };
   }
 }
 
-// Process records in batches
+// Process records in batches and return LogEntry array
 async function processBatch<T>(
   records: T[],
   mapToOnboardData: (record: T) => OnboardData,
   tableName: string
-): Promise<void> {
+): Promise<LogEntry[]> {
   const client = await pool.connect();
+  const results: LogEntry[] = [];
   try {
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
-      const batchData = batch.map(mapToOnboardData); // Map to OnboardData
-      const batchPromises = batchData.map((data) =>
-        callProcedure(client, data).catch((err) => ({
-          error: err,
-          mobile_number: data.mobile_number,
-        }))
-      );
+      const batchData = batch.map(mapToOnboardData);
+      const batchPromises = batchData.map(async (data) => {
+        // Extract agentCode and whatsappNo based on source table
+        let agentCode: string;
+        let whatsappNo: string;
 
-      const results = await Promise.all(batchPromises);
-      results.forEach((result, index) => {
-        if (result && 'error' in result) {
-          console.error(
-            `Error in ${tableName} for record ${batchData[index].mobile_number || 'unknown'}: ${
-              result.error.message || result.error
-            }`
-          );
+        if (tableName === 'navisionRetailMaster') {
+          const retailItem = batch[batchData.indexOf(data)] as RetailMaster;
+          agentCode = retailItem.agentCode ?? 'Unknown';
+          whatsappNo = retailItem.whatsappNo ?? '';
+        } else if (tableName === 'navisionCustomerMaster') {
+          const customerItem = batch[batchData.indexOf(data)] as CustomerMaster;
+          agentCode = customerItem.salesAgent ?? 'Unknown';
+          whatsappNo = customerItem.whatsappNo1 ?? '';
+        } else if (tableName === 'navisionNotifyCustomer') {
+          const notifyItem = batch[batchData.indexOf(data)] as NotifyCustomer;
+          agentCode = notifyItem.salesAgent ?? 'Unknown';
+          whatsappNo = notifyItem.whatsappNo ?? '';
+        } else {
+          agentCode = 'Unknown';
+          whatsappNo = '';
         }
+
+        const enttry = await db.select().from(userMaster).where(eq(userMaster.mobileNumber,data.mobile_number))
+        if(enttry.length){
+          return null
+        }
+
+        const result = await callProcedure(client, data);
+        return {
+          rawOutput:result,
+          mobileParam:data.mobile_number,
+          navisionId: data.navision_id,
+          sourceTable: tableName,
+          success: result.success,
+          reason: result.message || null,
+          agentCode,
+          whatsappNo,
+        };
       });
+
+      const batchResults = (await Promise.all(batchPromises)).filter(Boolean);
+      results.push(...batchResults);
       console.log(`Processed batch ${i / BATCH_SIZE + 1} of ${tableName}`);
     }
   } finally {
     client.release();
   }
+  return results;
 }
 
 async function onboardAll() {
@@ -226,7 +263,10 @@ async function onboardAll() {
       ) AS exists`
     );
     if (!checkProcedure.rows[0].exists) {
-      throw new Error('Stored procedure onboard_retailer does not exist in the public schema');
+      const errorMsg = 'Stored procedure onboard_retailer does not exist in the public schema';
+      console.error(errorMsg);
+      fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
+      throw new Error(errorMsg);
     }
 
     // Fetch all data concurrently
@@ -239,8 +279,8 @@ async function onboardAll() {
     // Map functions to convert table records to OnboardData
     const mapCustomerMaster = (c: CustomerMaster): OnboardData => ({
       username: c.name,
-      mobile_number: c.whatsappNo1 ?? '',
-      secondary_mobile_number: c.whatsappNo2,
+      mobile_number: c.whatsappNo1 ?? null,
+      secondary_mobile_number: c.whatsappNo2?.trim().length?c.whatsappNo2.trim():null,
       password: hashedPassword,
       shop_name: c.name,
       shop_address: c.address,
@@ -254,14 +294,14 @@ async function onboardAll() {
       state: c.stateCode,
       user_type: 'Retailer',
       fcm_token: null,
-      navision_id:c.no,
+      navision_id: c.no,
       device_details: null,
     });
 
     const mapNotifyCustomer = (n: NotifyCustomer): OnboardData => ({
       username: n.name ?? '',
       mobile_number: n.whatsappNo ?? '',
-      secondary_mobile_number: n.whatsappNo2,
+      secondary_mobile_number: n.whatsappNo2?.trim().length?n.whatsappNo2.trim():null,
       password: hashedPassword,
       shop_name: n.name ?? '',
       shop_address: n.address,
@@ -273,16 +313,16 @@ async function onboardAll() {
       pin_code: n.postCode,
       city: n.city,
       state: n.stateCode,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
-      navision_id:n.no,
+      navision_id: n.no ?? '',
       device_details: null,
     });
 
     const mapRetailMaster = (r: RetailMaster): OnboardData => ({
       username: r.shopName ?? '',
       mobile_number: r.whatsappNo ?? '',
-      secondary_mobile_number: r.whatsappNo2,
+      secondary_mobile_number: r.whatsappNo2?.trim().length?r.whatsappNo2.trim():null,
       password: hashedPassword,
       shop_name: r.shopName ?? '',
       shop_address: r.shopAddress,
@@ -296,23 +336,59 @@ async function onboardAll() {
       state: r.state,
       user_type: 'Retailer',
       fcm_token: null,
-      navision_id:r.no,
+      navision_id: r.no,
       device_details: null,
     });
 
     // Process all tables concurrently with batching
-    await Promise.all([
+    const [customerResults, notifyResults, retailResults] = await Promise.all([
       processBatch<CustomerMaster>(customers, mapCustomerMaster, 'navisionCustomerMaster'),
       processBatch<NotifyCustomer>(notifyCustomers, mapNotifyCustomer, 'navisionNotifyCustomer'),
       processBatch<RetailMaster>(retailCustomers, mapRetailMaster, 'navisionRetailMaster'),
     ]);
 
+    // Combine all results
+    const allResults: LogEntry[] = [...customerResults, ...notifyResults, ...retailResults];
+
+    // Summarize and log results
+    const totalAttempted = allResults.length;
+    const successful = allResults.filter(r => r.success).length;
+    const failed = allResults.filter(r => !r.success);
+
+    const logContent = `
+Date: ${new Date().toISOString()}
+Total attempted: ${totalAttempted}
+Successfully onboarded: ${successful}
+Failed to onboard: ${failed.length}
+${failed.length > 0 ? 'Details of failed onboardings:\n' + failed.map(fail => 
+  `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}, Dump: ${JSON.stringify(fail.rawOutput)},PARAMSENT: ${fail.mobileParam}`
+).join('\n') : ''}
+`;
+
+    // Write to log file
+    fs.writeFileSync('onboardAllRetailers_log.txt', logContent);
+
+    // Log to console
+    console.log(`Total attempted: ${totalAttempted}`);
+    console.log(`Successfully onboarded: ${successful}`);
+    console.log(`Failed to onboard: ${failed.length}`);
+    if (failed.length > 0) {
+      console.log('Details of failed onboardings:');
+      for (const fail of failed) {
+        console.log(
+          `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}`
+        );
+      }
+    }
+
     console.log('✅ Bulk onboarding complete');
   } catch (err: any) {
-    console.error('❌ Error during onboarding:', err.message);
+    const errorMsg = `❌ Error during onboarding: ${err.message}`;
+    console.error(errorMsg);
+    fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
     throw err;
   } finally {
-    await pool.end(); // Close the connection pool
+    await pool.end();
   }
 }
 

@@ -113,10 +113,10 @@ class App {
      //await nav.syncVendor()
     //await nav.totalPoints();
     //await nav.claimPoints();
-    //await nav.balancePoints();
+    await nav.balancePoints();
     //await nav.mapSalesPerson();
     //await nav.onboardSalesPerson();
-    await nav.mapDist2()
+    //await nav.mapDist2()
 
 
     res.send("Donee")
