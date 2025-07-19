@@ -4,7 +4,7 @@ import {Pool} from 'pg'
 import * as schema from '../src/db/schema'
 import { sql, eq, inArray, and } from 'drizzle-orm';
 const pool = new Pool({
-  connectionString: 'postgresql://dbadmin:Test@123@13.200.12.122:5432/ranjit_loyalty', // e.g. postgres://user:pass@host:port/db
+  connectionString: '', // e.g. postgres://user:pass@host:port/db
   //ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
