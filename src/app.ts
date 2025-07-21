@@ -113,7 +113,7 @@ class App {
      //await nav.syncVendor()
     //await nav.totalPoints();
     //await nav.claimPoints();
-    await nav.balancePoints();
+    //await nav.balancePoints();
     //await nav.mapSalesPerson();
     //await nav.onboardSalesPerson();
     //await nav.mapDist2()
@@ -122,7 +122,7 @@ class App {
     res.send("Donee")
 
 })
-    // Your routes and middleware here
+    // Your routes and middleware here–…
     this.app.get('/health', (req, res) => {
       res.status(200).json({ status: 'OK', database: 'connected' });
     });

@@ -3,7 +3,7 @@ import { navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, u
 import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { PoolClient } from 'pg';
-import fs from 'fs';
+
 
 interface OnboardData {
   username: string;
@@ -184,7 +184,7 @@ async function callProcedure(client: PoolClient, data: OnboardData): Promise<Onb
   } catch (err: any) {
     const errorMessage = `Failed to onboard ${data.navision_id}: ${err.message}`;
     console.error(errorMessage);
-    fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMessage}\n`);
+   //fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMessage}\n`);
     return { success: false, error: errorMessage };
   }
 }
@@ -265,7 +265,7 @@ async function onboardAll() {
     if (!checkProcedure.rows[0].exists) {
       const errorMsg = 'Stored procedure onboard_retailer does not exist in the public schema';
       console.error(errorMsg);
-      fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
+      //fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
       throw new Error(errorMsg);
     }
 
@@ -281,7 +281,7 @@ async function onboardAll() {
       username: c.name,
       mobile_number: c.whatsappNo1 ?? null,
       secondary_mobile_number: c.whatsappNo2?.trim().length?c.whatsappNo2.trim():null,
-      password: hashedPassword,
+      password: 'default@123',
       shop_name: c.name,
       shop_address: c.address,
       home_address: c.address2,
@@ -292,7 +292,7 @@ async function onboardAll() {
       pin_code: c.postCode,
       city: c.city,
       state: c.stateCode,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
       navision_id: c.no,
       device_details: null,
@@ -302,7 +302,7 @@ async function onboardAll() {
       username: n.name ?? '',
       mobile_number: n.whatsappNo ?? '',
       secondary_mobile_number: n.whatsappNo2?.trim().length?n.whatsappNo2.trim():null,
-      password: hashedPassword,
+      password: 'default@123',
       shop_name: n.name ?? '',
       shop_address: n.address,
       home_address: n.address2,
@@ -323,7 +323,7 @@ async function onboardAll() {
       username: r.shopName ?? '',
       mobile_number: r.whatsappNo ?? '',
       secondary_mobile_number: r.whatsappNo2?.trim().length?r.whatsappNo2.trim():null,
-      password: hashedPassword,
+      password: 'default@123',
       shop_name: r.shopName ?? '',
       shop_address: r.shopAddress,
       home_address: r.address2,
@@ -334,7 +334,7 @@ async function onboardAll() {
       pin_code: r.pinCode,
       city: r.city,
       state: r.state,
-      user_type: 'Retailer',
+      user_type: 'retailer',
       fcm_token: null,
       navision_id: r.no,
       device_details: null,
@@ -355,37 +355,37 @@ async function onboardAll() {
     const successful = allResults.filter(r => r.success).length;
     const failed = allResults.filter(r => !r.success);
 
-    const logContent = `
-Date: ${new Date().toISOString()}
-Total attempted: ${totalAttempted}
-Successfully onboarded: ${successful}
-Failed to onboard: ${failed.length}
-${failed.length > 0 ? 'Details of failed onboardings:\n' + failed.map(fail => 
-  `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}, Dump: ${JSON.stringify(fail.rawOutput)},PARAMSENT: ${fail.mobileParam}`
-).join('\n') : ''}
-`;
+//     const logContent = `
+// Date: ${new Date().toISOString()}
+// Total attempted: ${totalAttempted}
+// Successfully onboarded: ${successful}
+// Failed to onboard: ${failed.length}
+// ${failed.length > 0 ? 'Details of failed onboardings:\n' + failed.map(fail => 
+//   `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}, Dump: ${JSON.stringify(fail.rawOutput)},PARAMSENT: ${fail.mobileParam}`
+// ).join('\n') : ''}
+// `;
 
     // Write to log file
-    fs.writeFileSync('onboardAllRetailers_log.txt', logContent);
+    // fs.writeFileSync('onboardAllRetailers_log.txt', logContent);
 
-    // Log to console
-    console.log(`Total attempted: ${totalAttempted}`);
-    console.log(`Successfully onboarded: ${successful}`);
-    console.log(`Failed to onboard: ${failed.length}`);
-    if (failed.length > 0) {
-      console.log('Details of failed onboardings:');
-      for (const fail of failed) {
-        console.log(
-          `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}`
-        );
-      }
-    }
+    // // Log to console
+    // console.log(`Total attempted: ${totalAttempted}`);
+    // console.log(`Successfully onboarded: ${successful}`);
+    // console.log(`Failed to onboard: ${failed.length}`);
+    // if (failed.length > 0) {
+    //   console.log('Details of failed onboardings:');
+    //   for (const fail of failed) {
+    //     console.log(
+    //       `Navision ID: ${fail.navisionId}, Source: ${fail.sourceTable}, Reason: ${fail.reason}, Agent Code: ${fail.agentCode}, WhatsApp No: ${fail.whatsappNo}`
+    //     );
+    //   }
+    // }
 
     console.log('✅ Bulk onboarding complete');
   } catch (err: any) {
     const errorMsg = `❌ Error during onboarding: ${err.message}`;
     console.error(errorMsg);
-    fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
+    //fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
     throw err;
   } finally {
     await pool.end();
