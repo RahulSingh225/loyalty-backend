@@ -104,11 +104,11 @@ class App {
 
     const nav = new NavisionService();
    // await nav.syncCustomer();
-    await nav.syncRetail()
+    //await nav.syncRetail()
     //await nav.syncNotifyCustomer()
      //await nav.syncSalesLedger()
-    //   await nav.syncSalesClaimTransfer()
-    // await nav.syncSalesPersonList()
+    //await nav.syncSalesClaimTransfer()
+     //await nav.syncSalesPersonList()
      //await nav.syncRetailerReward();
      //await nav.syncRedemptionRequest();
      //await nav.syncVendor()
@@ -118,6 +118,9 @@ class App {
     //await nav.mapSalesPerson();
     //await nav.onboardSalesPerson();
     //await nav.mapDist2()
+    //await nav.onboardDistributors()
+
+
 
 
     res.send("Donee")

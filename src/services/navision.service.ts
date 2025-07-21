@@ -3,7 +3,7 @@ import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, nav
 import { db, pool } from './db.service';
 import dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
-import {  and, eq, inArray, isNotNull, ne, or, sql, sum } from 'drizzle-orm';
+import {  and, eq, inArray, isNotNull, isNull, ne, or, sql, sum } from 'drizzle-orm';
 import { PoolClient } from 'pg';
 import { GlobalState } from '../configs/config';
     type VendorInsert = typeof navisionVendorMaster.$inferInsert;
@@ -1406,7 +1406,7 @@ async  mapDist2(): Promise<UpdateResult> {
     // Start a transaction
     const result = await db.transaction(async (tx) => {
       // Reset retailer.distributor_id to NULL to avoid stale data
-      await tx.update(retailer).set({ distributorId: null });
+      ///await tx.update(retailer).set({ distributorId: null });
 
       // Fetch all retailer navision IDs in batches
       const BATCH_SIZE = 1000;
@@ -1416,7 +1416,8 @@ async  mapDist2(): Promise<UpdateResult> {
       // Get total count for pagination
       const [countResult]: { count: number }[] = await tx
         .select({ count: sql`COUNT(*)`.mapWith(Number) })
-        .from(retailer);
+        .from(retailer)
+        .where(isNull(retailer.distributorId))
 
       const count = countResult.count; // Safe, as COUNT(*) always returns one row
 
@@ -1425,6 +1426,7 @@ async  mapDist2(): Promise<UpdateResult> {
         const retailers = await tx
           .select({ navId: retailer.navisionId })
           .from(retailer)
+          .where(isNull(retailer.distributorId))
           .limit(BATCH_SIZE)
           .offset(offset);
 
@@ -1436,7 +1438,7 @@ async  mapDist2(): Promise<UpdateResult> {
       const distributorIds = await tx
         .select({ navisionId: distributor.navisionId })
         .from(distributor)
-        .where(eq(distributor.navisionId,'AG0014'))
+        
       const validDistributorIds = new Set(
         distributorIds.map((d) => d.navisionId?.trim().toUpperCase() ?? '')
       );
