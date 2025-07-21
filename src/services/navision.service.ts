@@ -13,6 +13,7 @@ import { GlobalState } from '../configs/config';
   id: string; // Adjust type if navision_id is a number
   totalPoints: number;
 }
+import fs from 'fs'
 
 
 interface OnboardData {
@@ -254,8 +255,11 @@ class NavisionService {
             skip += pageSize;
         }
     } catch (error: any) {
-        console.error('Error syncing retail:', error);
-        throw new Error('Failed to sync retail data with Navision');
+      
+      fs.appendFileSync('log.txt',JSON.stringify(error))
+        console.error('Error syncing retail:');
+        
+        throw new Error(error);
     }
 }
 
@@ -620,7 +624,7 @@ async  bulkInsertVendors(vendors: any[]) {
     }
 
     // Log the first retailer for debugging
-    console.log('Sample retailer data:', JSON.stringify(retailers[0], null, 2));
+    //console.log('Sample retailer data:', JSON.stringify(retailers[0], null, 2));
 
     // Transform and validate input data to match schema
     const retailersWithSchemaFields = [];
@@ -755,14 +759,14 @@ async  bulkInsertVendors(vendors: any[]) {
   } catch (error: any) {
     // Enhanced error logging
     console.error('Error inserting retailers:', {
-      message: error.message,
-      code: error.code, // PostgreSQL error code (e.g., '23505' for unique violation)
-      detail: error.detail, // Detailed error message from PostgreSQL
-      stack: error.stack,
-      retailersSample: retailers.slice(0, 2), // Log first two records for inspection
-      query: error.query || 'N/A', // Log the failed query if available
+      //message: error.message,
+      //code: error.code, // PostgreSQL error code (e.g., '23505' for unique violation)
+      //detail: error.detail, // Detailed error message from PostgreSQL
+      //stack: error.stack,
+      //retailersSample: retailers.slice(0, 2), // Log first two records for inspection
+      //query: error.query || 'N/A', // Log the failed query if available
     });
-    throw new Error(`Error inserting retailers: ${error.message}`);
+    throw new Error(`Error inserting retailers:`);
   }
 }
 

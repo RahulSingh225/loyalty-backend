@@ -103,10 +103,11 @@ class App {
  this.app.get("/sync",async (req:Request,res,Response)=>{
 
     const nav = new NavisionService();
-    //await nav.syncCustomer();
-    //await nav.syncRetail()
+   // await nav.syncCustomer();
+    await nav.syncRetail()
+    //await nav.syncNotifyCustomer()
      //await nav.syncSalesLedger()
-      //await nav.syncSalesClaimTransfer()
+    //   await nav.syncSalesClaimTransfer()
     // await nav.syncSalesPersonList()
      //await nav.syncRetailerReward();
      //await nav.syncRedemptionRequest();
