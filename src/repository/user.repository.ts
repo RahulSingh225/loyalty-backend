@@ -364,7 +364,7 @@ case 'distributor':
                 .innerJoin(navisionRetailMaster, eq(retailer.navisionId, navisionRetailMaster.no))
                 .where(and(
                     eq(userMaster.userType, 'retailer'),
-                    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                    // inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
                     exists(
                         this.db.select()
                             .from(navisionRetailMaster)
@@ -417,7 +417,7 @@ case 'distributor':
                 .innerJoin(navisionVendorMaster, eq(distributor.navisionId, navisionVendorMaster.no))
                 .where(and(
                     eq(userMaster.userType, 'retailer'),
-                    inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
+                    //inArray(retailer.salesAgentCodee, sql`(SELECT navision_id FROM salesperson WHERE user_id = ${authUser.userId})`),
                     ...(param?.distributorId ? [inArray(retailer.distributorId, sql`(${param.distributorId})`)] : [])
                 ));
 

@@ -3,7 +3,7 @@ import {Request, Response} from "express";
 class EarningController {
   async initiateEarning(req: Request, res: Response) {
     try {
-      const result = await earningRepository.pointsTransfer(req.body);
+      const result = await earningRepository.pointsTransfer(req.body,req.user);
       return res.status(201).json({success:true,data:result});
     } catch (error) {
       console.log(error);

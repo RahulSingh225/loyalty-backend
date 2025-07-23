@@ -237,6 +237,7 @@ export const pointAllocationLog = pgTable("point_allocation_log", {
 	adminApprovalDate: timestamp("admin_approval_date", { mode: 'string' }),
 	description: text(),
 	details: json().array(),
+	documentNo: text("document_no"),
 }, (table) => [
 	foreignKey({
 			columns: [table.adminApprovedBy],

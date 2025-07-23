@@ -14,6 +14,7 @@ import { GlobalState } from '../configs/config';
   totalPoints: number;
 }
 import fs from 'fs'
+import { ClaimPostPayload } from '../types';
 
 
 interface OnboardData {
@@ -1963,6 +1964,25 @@ async  syncRedemptionRequest() {
     //await pool.end(); // Close the database connection
   }
 }
+
+
+async postClaimTransfer(payload: ClaimPostPayload): Promise<void> {
+  const url = `${process.env.NAVISION_URL}/SalesPointTransfer_ClaimPostAPIList`;
+
+ 
+
+  try {
+    console.log(payload)
+      const response = await this.makeRequest(url, 'POST',payload);
+    console.log('✅ Success:', response.data);
+  } catch (error: any) {
+
+    console.error('❌ Error:', error.response?.data || error.message);
+    throw new Error(error.response?.data || error.message)
+  }
+}
+
+
 
 // async pushledgerToNavision() {
 //   try {
