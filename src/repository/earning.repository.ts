@@ -38,7 +38,6 @@ class EarningRepository {
   // }
 
   async pointsTransfer(payload:typeof pointAllocationLog.$inferInsert,authUser:any) {
- console.log('Payload:', payload);
 
   // Fetch source and target users
   const users = await db
@@ -52,7 +51,7 @@ class EarningRepository {
   console.log('Users found:', users);
 
   // Validate source user balance
-  const sourceUser = users.find(user => user.userId === payload.sourceUserId);
+  const sourceUser = users.find(user => user.userId == payload.sourceUserId);
   if (!sourceUser) {
     throw new Error('Source user not found');
   }
@@ -65,8 +64,8 @@ class EarningRepository {
 
   // Validate total points from details
   const totalDetailPoints = payload.details.reduce((sum:any, detail:any) => {
-    return sum + (typeof detail?.multiplier === 'number' && !isNaN(detail.multiplier) &&
-                  typeof detail?.qty === 'number' && !isNaN(detail.qty)
+    return sum + (typeof detail?.multiplier == 'number' && !isNaN(detail.multiplier) &&
+                  typeof detail?.qty == 'number' && !isNaN(detail.qty)
                   ? detail.multiplier * detail.qty : 0);
   }, 0);
 
@@ -144,7 +143,6 @@ class EarningRepository {
     .leftJoin(navisionCustomerMaster, eq(retailer.navisionId, navisionCustomerMaster.no))
     .leftJoin(navisionNotifyCustomer, eq(retailer.navisionId, navisionNotifyCustomer.no));
 
-  console.log('Retailer Details:', retailerDetails);
 
   try {
     return await db.transaction(async (tx) => {
@@ -157,7 +155,7 @@ class EarningRepository {
         .where(eq(userMaster.userId, payload.sourceUserId));
 
       // Update target user balance and total points
-      const targetUser = users.find(user => user.userId === payload.targetUserId);
+      const targetUser = users.find(user => user.userId == payload.targetUserId);
       if (!targetUser) {
         throw new Error('Target user not found');
       }
@@ -168,16 +166,19 @@ class EarningRepository {
           totalPoints: String(Number(targetUser.totalPoints) + pointsAllocated),
         })
         .where(eq(userMaster.userId, payload.targetUserId));
-
+const formattedDetails = payload.details.map((item) =>
+      typeof item === 'string' ? JSON.parse(item) : item
+    );
+    console.log(formattedDetails)
       // Insert point allocation log
       const [transferResult] = await tx
         .insert(pointAllocationLog)
         .values({
-          sourceUserId: payload.sourceUserId,
-          targetUserId: payload.targetUserId,
+          sourceUserId: Number(payload.sourceUserId),
+          targetUserId: Number(payload.targetUserId),
           pointsAllocated: payload.pointsAllocated,
           allocationMethod: 'points_transfer',
-          details: payload.details,
+          details: formattedDetails,
           status: 'pending',
           documentNo: `TR-${Date.now()}`,
         })
@@ -188,7 +189,7 @@ class EarningRepository {
       let invoiceDate: string | null = null;
       const groupDetails: { group_name: string; qty: number }[] = [];
 
-      payload.details.forEach((item:any) => {
+      formattedDetails.forEach((item:any) => {
         if (item.invoice_no) invoiceNo = item.invoice_no;
         if (item.invoice_date) invoiceDate = item.invoice_date;
         if (item.group && item.qty != null) {
@@ -204,10 +205,10 @@ class EarningRepository {
         Header: true,
         Document_No: transferResult.documentNo,
         Entry_Type: 'Points Transfer',
-        Customer_No: retailerDetails.sourceTable === 'navision_customer_master' ? retailerDetails.navisionId : '',
+        Customer_No: retailerDetails.sourceTable == 'navision_customer_master' ? retailerDetails.navisionId : '',
         Agent_Code: retailerDetails.agentCode || '',
-        Notify_Customer: retailerDetails.sourceTable === 'navision_notify_customer' ? retailerDetails.navisionId : '',
-        Retailer_No: retailerDetails.sourceTable === 'navision_retail_master' ? retailerDetails.navisionId : '',
+        Notify_Customer: retailerDetails.sourceTable == 'navision_notify_customer' ? retailerDetails.navisionId : '',
+        Retailer_No: retailerDetails.sourceTable == 'navision_retail_master' ? retailerDetails.navisionId : '',
         Sales_Person_Code: retailerDetails.salesPersonCode || '',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: invoiceNo ?? '',
@@ -231,10 +232,10 @@ const lineItems: ClaimPostPayload[]=[]
         Header: false,
         Document_No: transferResult.documentNo,
         Entry_Type: 'Points Transfer',
-        Customer_No: retailerDetails.sourceTable === 'navision_customer_master' ? retailerDetails.navisionId : '',
+        Customer_No: retailerDetails.sourceTable == 'navision_customer_master' ? retailerDetails.navisionId : '',
         Agent_Code: retailerDetails.agentCode || '',
-        Notify_Customer: retailerDetails.sourceTable === 'navision_notify_customer' ? retailerDetails.navisionId : '',
-        Retailer_No: retailerDetails.sourceTable === 'navision_retail_master' ? retailerDetails.navisionId : '',
+        Notify_Customer: retailerDetails.sourceTable == 'navision_notify_customer' ? retailerDetails.navisionId : '',
+        Retailer_No: retailerDetails.sourceTable == 'navision_retail_master' ? retailerDetails.navisionId : '',
         Sales_Person_Code: retailerDetails.salesPersonCode || '',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: '',
