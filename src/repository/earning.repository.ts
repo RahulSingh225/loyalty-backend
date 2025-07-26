@@ -258,9 +258,9 @@ const formattedDetails = payload.details.map((item) =>
         Sales_Point_Created_By: authUserDetails.username,
         Sales_Point_Created_DateTime: moment().format('YYYY-MM-DDTHH:mm:ss'),
         Sales_Point_Created_Date: moment().startOf('day').format('YYYY-MM-DDT00:00:00'),
-        Quality: '',
-        Quality_Desc: '',
-        Quantity: '',
+        Quality: groupDetails[0].group_name,
+        Quality_Desc: groupDetails[0].group_name,
+        Quantity: groupDetails[0].qty.toString(),
         Total_available_points: sourceUser.totalPoints.toString(),
         Total_Transferred_Points: payload.pointsAllocated.toString(),
       };
