@@ -8,7 +8,9 @@ export const schemedetails = pgTable("schemedetails", {
 	schemeId: integer("scheme_id").notNull(),
 	groupName: text("group_name").notNull(),
 	multiplier: numeric().notNull(),
+	uniqueId: text("unique_id"),
 });
+
 
 export const salesPointsClaimTransfer = pgTable("sales_points_claim_transfer", {
 	documentNo: varchar("document_no", { length: 50 }),

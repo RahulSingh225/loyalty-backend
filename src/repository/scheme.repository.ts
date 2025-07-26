@@ -23,6 +23,7 @@ class SchemeRepository extends BaseRepository {
             schemeId: schemedetails.schemeId,
             groupName: schemedetails.groupName,
             multiplier: schemedetails.multiplier,
+            uniqueId:schemedetails.uniqueId
           })
           .from(schemedetails)
           .where(inArray(schemedetails.schemeId, schemeIds));

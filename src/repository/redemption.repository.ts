@@ -17,8 +17,8 @@ interface RedemptionPayload {
 class RedemptionRepository extends BaseRepository {
   async initiateRedemption(payload: RedemptionPayload, authUser: any) {
     console.log(authUser)
-
-
+console.log(Date.now())
+return;
 let authUserDetails;
 
 if (authUser.userType === 'retailer') {

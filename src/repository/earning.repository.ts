@@ -38,7 +38,7 @@ class EarningRepository {
   // }
 
   async pointsTransfer(payload:typeof pointAllocationLog.$inferInsert,authUser:any) {
-console.log(authUser)
+console.log(payload)
 
 
   // Fetch source and target users
@@ -228,13 +228,14 @@ const formattedDetails = payload.details.map((item) =>
       // Process payload details for claim posting
       let invoiceNo: string | null = null;
       let invoiceDate: string | null = null;
-      const groupDetails: { group_name: string; qty: number }[] = [];
+      const groupDetails: { group_name: string; qty: number,uniqueId:string }[] = [];
 
       formattedDetails.forEach((item:any) => {
         if (item.invoice_no) invoiceNo = item.invoice_no;
         if (item.invoice_date) invoiceDate = item.invoice_date;
         if (item.group && item.qty != null) {
           groupDetails.push({
+            uniqueId:item.uniqueId,
             group_name: item.group,
             qty: item.qty,
           });
@@ -258,7 +259,7 @@ const formattedDetails = payload.details.map((item) =>
         Sales_Point_Created_By: authUserDetails.username,
         Sales_Point_Created_DateTime: moment().format('YYYY-MM-DDTHH:mm:ss'),
         Sales_Point_Created_Date: moment().startOf('day').format('YYYY-MM-DDT00:00:00'),
-        Quality: groupDetails[0].group_name,
+        Quality: groupDetails[0].uniqueId,
         Quality_Desc: groupDetails[0].group_name,
         Quantity: groupDetails[0].qty.toString(),
         Total_available_points: sourceUser.totalPoints.toString(),
@@ -285,7 +286,7 @@ const lineItems: ClaimPostPayload[]=[]
         Sales_Point_Created_By: authUserDetails.username,
         Sales_Point_Created_DateTime: moment().format('YYYY-MM-DDTHH:mm:ss'),
         Sales_Point_Created_Date: moment().startOf('day').format('YYYY-MM-DDT00:00:00'),
-        Quality: item.group_name,
+        Quality: item.uniqueId,
         Quality_Desc: item.group_name,
         Quantity: item.qty.toString(),
         Total_available_points: sourceUser.totalPoints.toString(),

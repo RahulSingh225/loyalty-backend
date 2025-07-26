@@ -379,13 +379,6 @@ export const transaction = pgTable("transaction", {
 		}),
 ]);
 
-export const schemedetails = pgTable("schemedetails", {
-	id: serial().primaryKey().notNull(),
-	schemeId: integer("scheme_id").notNull(),
-	groupName: text("group_name").notNull(),
-	multiplier: numeric().notNull(),
-});
-
 export const schemes = pgTable("schemes", {
 	schemeId: integer("scheme_id").primaryKey().notNull(),
 	schemeName: text("scheme_name").notNull(),
@@ -395,6 +388,14 @@ export const schemes = pgTable("schemes", {
 	startDate: date("start_date"),
 	endDate: date("end_date"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const schemedetails = pgTable("schemedetails", {
+	id: serial().primaryKey().notNull(),
+	schemeId: integer("scheme_id").notNull(),
+	groupName: text("group_name").notNull(),
+	multiplier: numeric().notNull(),
+	uniqueId: text("unique_id"),
 });
 
 export const userRoles = pgTable("user_roles", {
