@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, pointAllocationLog, retailer, userMaster } from "../db/schema";
+import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, pointAllocationLog, retailer, salesperson, userMaster } from "../db/schema";
 import { db } from "../services/db.service";
 import { startOfDay } from "date-fns";
 import { GlobalState } from "../configs/config";
@@ -38,6 +38,8 @@ class EarningRepository {
   // }
 
   async pointsTransfer(payload:typeof pointAllocationLog.$inferInsert,authUser:any) {
+console.log(authUser)
+
 
   // Fetch source and target users
   const users = await db
@@ -76,11 +78,50 @@ class EarningRepository {
     throw new Error('Points allocated must match the total points from details');
   }
 
-  // Fetch auth user details
-  const [authUserDetails] = await db
-    .select()
+
+let authUserDetails;
+
+if (authUser.userType === 'retailer') {
+  [authUserDetails] = await db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here based on your schema
+      // For example: email: userMaster.email, deviceDetails: userMaster.deviceDetails, etc.
+      navisionId: retailer.navisionId,
+    })
     .from(userMaster)
+    .leftJoin(retailer, eq(userMaster.userId, retailer.userId))
     .where(eq(userMaster.userId, authUser.userId));
+} else if (authUser.userType === 'distributor') {
+  [authUserDetails] = await db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here
+      navisionId: distributor.navisionId,
+    })
+    .from(userMaster)
+    .leftJoin(distributor, eq(userMaster.userId, distributor.userId))
+    .where(eq(userMaster.userId, authUser.userId));
+} else if (authUser.userType === 'sales') {
+  [authUserDetails] = await db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here
+      navisionId: salesperson.navisionId,
+    })
+    .from(userMaster)
+    .leftJoin(salesperson, eq(userMaster.userId, salesperson.userId))
+    .where(eq(userMaster.userId, authUser.userId));
+} else {
+  throw new Error('Invalid userType');
+}
+
 
   if (!authUserDetails) {
     throw new Error('Authenticated user details not found');
@@ -183,7 +224,7 @@ const formattedDetails = payload.details.map((item) =>
           documentNo: `TR-${Date.now()}`,
         })
         .returning({ documentNo: pointAllocationLog.documentNo });
-
+          console.log(transferResult)
       // Process payload details for claim posting
       let invoiceNo: string | null = null;
       let invoiceDate: string | null = null;
@@ -209,7 +250,7 @@ const formattedDetails = payload.details.map((item) =>
         Agent_Code: retailerDetails.agentCode || '',
         Notify_Customer: retailerDetails.sourceTable == 'navision_notify_customer' ? retailerDetails.navisionId : '',
         Retailer_No: retailerDetails.sourceTable == 'navision_retail_master' ? retailerDetails.navisionId : '',
-        Sales_Person_Code: retailerDetails.salesPersonCode || '',
+        Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: invoiceNo ?? '',
         Order_Date: invoiceDate ? moment(invoiceDate).startOf('day').format('YYYY-MM-DDT00:00:00') : '',
@@ -236,7 +277,7 @@ const lineItems: ClaimPostPayload[]=[]
         Agent_Code: retailerDetails.agentCode || '',
         Notify_Customer: retailerDetails.sourceTable == 'navision_notify_customer' ? retailerDetails.navisionId : '',
         Retailer_No: retailerDetails.sourceTable == 'navision_retail_master' ? retailerDetails.navisionId : '',
-        Sales_Person_Code: retailerDetails.salesPersonCode || '',
+        Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: '',
         Order_Date: invoiceDate ? moment(invoiceDate).startOf('day').format('YYYY-MM-DDT00:00:00') : '',
@@ -249,7 +290,9 @@ const lineItems: ClaimPostPayload[]=[]
         Quantity: item.qty.toString(),
         Total_available_points: sourceUser.totalPoints.toString(),
         Total_Transferred_Points: payload.pointsAllocated.toString(),
-      })));
+      })
+    )
+  );
 
 
       // Post claims to Navision

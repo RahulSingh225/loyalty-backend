@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { gifts, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, navisionVendorMaster, pointAllocationLog, redemptionRequest, redemptionRewardLines, retailer, userMaster } from "../db/schema";
+import { distributor, gifts, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, navisionVendorMaster, pointAllocationLog, redemptionRequest, redemptionRewardLines, retailer, salesperson, userMaster } from "../db/schema";
 import BaseRepository from "./base.repository";
 import { ClaimPostPayload, ConsolidatedRetailerData } from "../types";
 import { GlobalState } from "../configs/config";
@@ -16,9 +16,57 @@ interface RedemptionPayload {
 
 class RedemptionRepository extends BaseRepository {
   async initiateRedemption(payload: RedemptionPayload, authUser: any) {
-    console.log(payload)
+    console.log(authUser)
 
-    const [authUserDetails] = await this.db.select().from(userMaster).where(eq(userMaster.userId,authUser.userId))
+
+let authUserDetails;
+
+if (authUser.userType === 'retailer') {
+  [authUserDetails] = await this.db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here based on your schema
+      // For example: email: userMaster.email, deviceDetails: userMaster.deviceDetails, etc.
+      navisionId: retailer.navisionId,
+    })
+    .from(userMaster)
+    .leftJoin(retailer, eq(userMaster.userId, retailer.userId))
+    .where(eq(userMaster.userId, authUser.userId));
+} else if (authUser.userType === 'distributor') {
+  [authUserDetails] = await this.db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here
+      navisionId: distributor.navisionId,
+    })
+    .from(userMaster)
+    .leftJoin(distributor, eq(userMaster.userId, distributor.userId))
+    .where(eq(userMaster.userId, authUser.userId));
+} else if (authUser.userType === 'sales') {
+  [authUserDetails] = await this.db
+    .select({
+      userId: userMaster.userId,
+      userType: userMaster.userType,
+      username: userMaster.username,
+      // Explicitly list other userMaster columns here
+      navisionId: salesperson.navisionId,
+    })
+    .from(userMaster)
+    .leftJoin(salesperson, eq(userMaster.userId, salesperson.userId))
+    .where(eq(userMaster.userId, authUser.userId));
+} else {
+  throw new Error('Invalid userType');
+}
+
+// Handle case where no user is found
+if (!authUserDetails) {
+  throw new Error('User not found');
+}
+
 
 
  const [retailerDetails] = await this.db.select({
@@ -142,7 +190,7 @@ console.log(retailerDetails)
         Agent_Code: retailerDetails.agentCode || '',
         Notify_Customer: retailerDetails.sourceTable === 'navision_notify_customer' ? retailerDetails.navisionId : '',
         Retailer_No: retailerDetails.sourceTable === 'navision_retail_master' ? retailerDetails.navisionId : '',
-        Sales_Person_Code: retailerDetails.salesPersonCode || '',
+        Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: '',
         Order_Date: startOfDay,
@@ -178,7 +226,7 @@ console.log(retailerDetails)
           Agent_Code: retailerDetails.agentCode || '',
           Notify_Customer: retailerDetails.sourceTable === 'navision_notify_customer' ? retailerDetails.navisionId : '',
           Retailer_No: retailerDetails.sourceTable === 'navision_retail_master' ? retailerDetails.navisionId : '',
-          Sales_Person_Code: retailerDetails.salesPersonCode || '',
+          Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
           Scheme: GlobalState.schemeFilter,
           Invoice_No: '',
           Order_Date: startOfDay,
