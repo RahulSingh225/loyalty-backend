@@ -3,9 +3,11 @@ import { distributor, gifts, navisionCustomerMaster, navisionNotifyCustomer, nav
 import BaseRepository from "./base.repository";
 import { ClaimPostPayload, ConsolidatedRetailerData } from "../types";
 import { GlobalState } from "../configs/config";
-import moment from "moment";
-import { auth } from "firebase-admin";
 import NavisionService from "../services/navision.service";
+import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { startOfDay } from "date-fns";
+
 
 interface RedemptionPayload {
   userId: number;
@@ -16,9 +18,6 @@ interface RedemptionPayload {
 
 class RedemptionRepository extends BaseRepository {
   async initiateRedemption(payload: RedemptionPayload, authUser: any) {
-    console.log(authUser)
-console.log(Date.now())
-return;
 let authUserDetails;
 
 if (authUser.userType === 'retailer') {
@@ -139,10 +138,8 @@ console.log(retailerDetails)
         throw new Error('Invalid input: Missing required fields');
       }
 
-      // Format dates
-      const now = new Date();
-      const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString().split('.')[0];
-      const currentDateTime = new Date().toISOString();
+ 
+    
 
       // Insert header
       const [header] = await tx
@@ -153,7 +150,7 @@ console.log(retailerDetails)
           deliveryAddress: payload.address,
           method: 'Claim',
           status: 'Submitted',
-          createdAt: currentDateTime,
+          createdAt: new Date(),
           createdBy: authUser.userId,
         })
         .returning({ requestId: redemptionRequest.requestId, redemptionId: redemptionRequest.redemptionId });
@@ -174,7 +171,7 @@ console.log(retailerDetails)
           pointsValue: reward.amount.toFixed(2),
           pointsRedeemed: reward.amount.toFixed(2),
           quantity: reward.quantity,
-          createdAt: currentDateTime,
+          createdAt: new Date(),
           createdBy: authUser.userId,
         };
       });
@@ -193,11 +190,11 @@ console.log(retailerDetails)
         Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: '',
-        Order_Date: startOfDay,
+        Order_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
         Remarks: '',
         Sales_Point_Created_By: authUserDetails.username,
-        Sales_Point_Created_DateTime: currentDateTime,
-        Sales_Point_Created_Date: startOfDay,
+        Sales_Point_Created_DateTime: formatInTimeZone(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"),
+        Sales_Point_Created_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
         Quality: '',
         Quality_Desc: '',
         Quantity: '0',
@@ -229,11 +226,11 @@ console.log(retailerDetails)
           Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
           Scheme: GlobalState.schemeFilter,
           Invoice_No: '',
-          Order_Date: startOfDay,
+          Order_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
           Remarks: '',
           Sales_Point_Created_By: authUserDetails.username,
-          Sales_Point_Created_DateTime: currentDateTime,
-          Sales_Point_Created_Date: startOfDay,
+          Sales_Point_Created_DateTime: formatInTimeZone(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"),
+          Sales_Point_Created_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
           Quality: giftDetails.uniqueId,
           Quality_Desc: giftDetails.giftName,
           Quantity: item.quantity.toString(),

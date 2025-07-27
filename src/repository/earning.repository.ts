@@ -4,7 +4,8 @@ import { db } from "../services/db.service";
 import { startOfDay } from "date-fns";
 import { GlobalState } from "../configs/config";
 import { ClaimPostPayload } from "../types";
-import moment from "moment";
+import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import NavisionService from "../services/navision.service";
 
 class EarningRepository {
@@ -241,6 +242,8 @@ const formattedDetails = payload.details.map((item) =>
           });
         }
       });
+       const now = new Date();
+      const currentDateTime = new Date().toISOString();
 
       // Prepare header item for Navision
       const headerItem: ClaimPostPayload = {
@@ -254,11 +257,11 @@ const formattedDetails = payload.details.map((item) =>
         Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: invoiceNo ?? '',
-        Order_Date: invoiceDate ? moment(invoiceDate).startOf('day').format('YYYY-MM-DDT00:00:00') : '',
+        Order_Date: invoiceDate ? format(startOfDay(invoiceDate), "yyyy-MM-dd'T'HH:mm:ss") : '',
         Remarks: '',
         Sales_Point_Created_By: authUserDetails.username,
-        Sales_Point_Created_DateTime: moment().format('YYYY-MM-DDTHH:mm:ss'),
-        Sales_Point_Created_Date: moment().startOf('day').format('YYYY-MM-DDT00:00:00'),
+        Sales_Point_Created_DateTime: formatInTimeZone(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"),
+        Sales_Point_Created_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
         Quality: groupDetails[0].uniqueId,
         Quality_Desc: groupDetails[0].group_name,
         Quantity: groupDetails[0].qty.toString(),
@@ -281,11 +284,11 @@ const lineItems: ClaimPostPayload[]=[]
         Sales_Person_Code: authUserDetails.userType=='sales'?authUserDetails.navisionId:'',
         Scheme: GlobalState.schemeFilter,
         Invoice_No: '',
-        Order_Date: invoiceDate ? moment(invoiceDate).startOf('day').format('YYYY-MM-DDT00:00:00') : '',
+        Order_Date: invoiceDate ? format(startOfDay(invoiceDate), "yyyy-MM-dd'T'HH:mm:ss") : '',
         Remarks: '',
         Sales_Point_Created_By: authUserDetails.username,
-        Sales_Point_Created_DateTime: moment().format('YYYY-MM-DDTHH:mm:ss'),
-        Sales_Point_Created_Date: moment().startOf('day').format('YYYY-MM-DDT00:00:00'),
+        Sales_Point_Created_DateTime: formatInTimeZone(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"),
+        Sales_Point_Created_Date: format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss"),
         Quality: item.uniqueId,
         Quality_Desc: item.group_name,
         Quantity: item.qty.toString(),

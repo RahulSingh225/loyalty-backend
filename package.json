@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/RahulSingh225/loyalty-backend#readme",
   "dependencies": {
-    "@esbuild/darwin-arm64": "^0.25.8",
+
     "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
     "bcrypt": "^5.1.1",
