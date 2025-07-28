@@ -526,6 +526,22 @@ export const notificationLog = pgTable("notification_log", {
 		}),
 ]);
 
+export const apiResponseLogs = pgTable("api_response_logs", {
+	id: serial().primaryKey().notNull(),
+	refNo: text("ref_no").notNull(),
+	apiUrl: text("api_url").notNull(),
+	apiResponse: json("api_response").notNull(),
+	payload: json(),
+});
+
+export const onboardingLogs = pgTable("onboarding_logs", {
+	id: serial().primaryKey().notNull(),
+	refNo: text("ref_no").notNull(),
+	result: jsonb().notNull(),
+}, (table) => [
+	unique("onboarding_logs_ref_no_key").on(table.refNo),
+]);
+
 export const rolePermissions = pgTable("role_permissions", {
 	roleId: integer("role_id").notNull(),
 	permissionId: integer("permission_id").notNull(),

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, navisionNotifyCustomer, salesPointLedgerEntry, salesPointsClaimTransfer, navisionSalespersonList, retailerRewardPointEntry, retailer, distributor, userMaster, salesperson } from '../db/schema';
+import { navisionCustomerMaster, navisionVendorMaster, navisionRetailMaster, navisionNotifyCustomer, salesPointLedgerEntry, salesPointsClaimTransfer, navisionSalespersonList, retailerRewardPointEntry, retailer, distributor, userMaster, salesperson, apiResponseLogs, onboardingLogs } from '../db/schema';
 import { db, pool } from './db.service';
 import dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
@@ -36,6 +36,7 @@ interface OnboardData {
   navision_id: string;
   fcm_token: string | null;
   device_details: object | null;
+  
 }
 
 interface CustomerMaster {
@@ -1035,6 +1036,10 @@ async  onboardDistributors(): Promise<void> {
         );
 
         const response = result.rows[0];
+        await db.insert(onboardingLogs).values({
+          refNo:vendor.no,
+          result:response
+        })
         console.log(response)
 
         if (response.success) {
@@ -1090,10 +1095,29 @@ async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResu
     });
 
         const deviceDetailsJson = data.device_details ? JSON.stringify(data.device_details) : null;
-
-
-    const result = await client.query<{ result: OnboardResult }>(
-      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) AS result`,
+      const existing  = await db.select().from(retailer).where(eq(retailer.navisionId,data.navision_id))
+      let result;
+      if(existing){
+        result  =await client.query(`SELECT update_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) AS result`,[
+          data.username,
+          data.mobile_number,
+          data.secondary_mobile_number,
+          data.password,
+          data.shop_name,
+          data.shop_address,
+          data.pan_id,
+          data.aadhar_id,
+          data.gst_id,
+          data.pin_code,
+          data.city,
+          data.state,
+          'retailer',
+          data.navision_id,
+          data.home_address
+        ])
+      }else{
+ result = await client.query<{ result: OnboardResult }>(
+      `SELECT onboard_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) AS result`,
       [
         data.username,
         data.mobile_number,
@@ -1110,10 +1134,18 @@ async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResu
         data.user_type,
         'test',
         data.navision_id,
-        deviceDetailsJson
+        deviceDetailsJson,
+        data.home_address
       ]
     );
+      }
+
+    
     const onboardResult = result.rows[0]?.result;
+    await db.insert(onboardingLogs).values({
+      refNo:data.navision_id,
+      result:onboardResult
+    })
     if (onboardResult.success) {
       console.log(`Successfully onboarded: ${data.navision_id} (user_id: ${onboardResult.user_id}, retailer_id: ${onboardResult.retailer_id})`);
     } else {
@@ -1589,16 +1621,73 @@ async mapSalesPerson() {
 
 async distributorPoints() {
   try {
-    // Fetch all distributors with navision IDs
-    const distributors = await db
-      .select({ navisionId: distributor.navisionId, distributorId: distributor.distributorId })
-      .from(distributor)
-      .where(isNotNull(distributor.navisionId));
-    if (!distributors.length) {
-      console.log('No distributors found with navision IDs');
-      return;
-    }
-    
+
+await db.execute(sql `UPDATE distributor
+SET total_points = 
+   
+        (SELECT SUM(sales_points) AS total_points
+        FROM public.sales_point_ledger_entry
+        WHERE agent_code = distributor.navision_id
+          AND document_type = 'Invoice'
+          AND scheme = '${GlobalState.schemeFilter}') `)
+
+   await db.execute(sql `UPDATE distributor
+SET balance_points = COALESCE(total_points, 0) - (
+    SELECT COALESCE(SUM(total_points), 0) AS total_transferred
+    FROM (
+        SELECT SUM(sales_points) AS total_points
+        FROM public.sales_point_ledger_entry
+        WHERE agent_code = distributor.navision_id
+          AND document_type = 'Transfer'
+          AND scheme = '${GlobalState.schemeFilter}'
+          AND customer_is_agent = false
+          AND retailer_no <> ''
+        UNION ALL
+        SELECT SUM(sales_points) AS total_points
+        FROM public.sales_point_ledger_entry
+        WHERE agent_code = distributor.navision_id
+          AND document_type = 'Transfer'
+          AND scheme = '${GlobalState.schemeFilter}'
+          AND customer_is_agent = false
+          AND customer_no <> ''
+          AND retailer_no = ''
+          AND notify_customer_no = ''
+          AND quantity > 0
+        UNION ALL
+        SELECT SUM(sales_points) AS total_points
+        FROM public.sales_point_ledger_entry
+        WHERE agent_code = distributor.navision_id
+          AND document_type = 'Transfer'
+          AND scheme = '${GlobalState.schemeFilter}'
+          AND customer_is_agent = false
+          AND customer_no = ''
+          AND retailer_no = ''
+          AND notify_customer_no <> ''
+          AND quantity > 0
+        UNION ALL
+        SELECT SUM(CAST(sales_point AS INTEGER)) AS total_points
+        FROM public.sales_points_claim_transfer
+        WHERE agent_code = distributor.navision_id
+          AND scheme = '${GlobalState.schemeFilter}'
+          AND entry_type = 'Points Transfer'
+          AND status = 'Submitted'
+          AND document_no in (
+              SELECT document_no
+              FROM public.sales_points_claim_transfer
+              WHERE agent_code = distributor.navision_id
+                AND scheme = '${GlobalState.schemeFilter}'
+                AND entry_type = 'Points Transfer'
+                AND status = 'Submitted'
+                AND line_type = 'Header'
+          )
+    ) AS combined_points
+);`)
+await db
+      .update(distributor)
+      .set({
+        consumedPoints: sql`${distributor.totalPoints} - ${distributor.balancePoints}`,
+      }) 
+    await db.update(userMaster).set({totalPoints:distributor.totalPoints,balancePoints:distributor.balancePoints,redeemedPoints:distributor.consumedPoints}).where(eq(userMaster.userId,distributor.userId))
 
   } catch (error) {
     console.error('Error fetching distributors:', error);
@@ -1877,16 +1966,25 @@ async onboardSalesPerson(){
         await db.transaction(async (tx)=>{
             const existingUser = await tx.select().from(userMaster).where(eq(userMaster.mobileNumber,s.whatsappMobileNumber)).limit(1);
             if (existingUser.length > 0) {
+              await db.insert(onboardingLogs).values({
+            refNo:s.code,
+            result:{data:`User with mobile number ${s.whatsappMobileNumber} already exists, skipping onboarding.`}
+           })
                 console.log(`User with mobile number ${s.whatsappMobileNumber} already exists, skipping onboarding.`);
                 return; // Skip if user already exists
             }
            const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).onConflictDoNothing({ target: userMaster.mobileNumber }).returning()
+           await db.insert(onboardingLogs).values({
+            refNo:s.code,
+            result:{data:`Onboarded user: ${entry} with mobile number ${s.whatsappMobileNumber}`}
+           })
            console.log(`Onboarded user: ${entry} with mobile number ${s.whatsappMobileNumber}`);
             await tx.insert(salesperson).values({userId:entry[0].userId,salespersonName:s.name,state:s.state,pinCode:s.postCode,mobileNumber:s.whatsappMobileNumber,address:s.address,address2:s.address2,city:s.city,navisionId:s.code}).onConflictDoNothing({target:salesperson.userId})
             await db.update(navisionSalespersonList).set({onboarded:true}).where(eq(navisionSalespersonList.code,s.code))
         })
     }
     } catch (error) {
+      
         console.log(error)
     }
    
@@ -1972,13 +2070,25 @@ async postClaimTransfer(payload: ClaimPostPayload): Promise<void> {
  
 
   try {
-    console.log(payload)
       const response = await this.makeRequest(url, 'POST',payload);
-    console.log('✅ Success:', response.data);
+    console.log('✅ Success:', response);
+  await db.insert(apiResponseLogs).values({
+      refNo:payload.Document_No,
+      apiUrl: url,
+      apiResponse: response,
+      payload:payload
+    })
   } catch (error: any) {
-
     console.error('❌ Error:', error.response?.data || error.message);
+    await db.insert(apiResponseLogs).values({
+      refNo:payload.Document_No,
+      apiUrl: url,
+      apiResponse: error.response?.data || error.message,
+      payload:payload
+    })
     throw new Error(error.response?.data || error.message)
+
+    
   }
 }
 

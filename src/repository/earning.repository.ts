@@ -196,6 +196,13 @@ if (authUser.userType === 'retailer') {
         })
         .where(eq(userMaster.userId, payload.sourceUserId));
 
+        await tx
+        .update(distributor)
+        .set({
+          balancePoints: (Number(sourceUser.balancePoints) - pointsAllocated),
+        })
+        .where(eq(distributor.userId, payload.sourceUserId));
+
       // Update target user balance and total points
       const targetUser = users.find(user => user.userId == payload.targetUserId);
       if (!targetUser) {
@@ -208,6 +215,17 @@ if (authUser.userType === 'retailer') {
           totalPoints: String(Number(targetUser.totalPoints) + pointsAllocated),
         })
         .where(eq(userMaster.userId, payload.targetUserId));
+
+
+await tx
+        .update(retailer)
+        .set({
+          balancePoints: String(Number(targetUser.balancePoints) + pointsAllocated),
+          totalPoints: String(Number(targetUser.totalPoints) + pointsAllocated),
+        })
+        .where(eq(retailer.userId, payload.targetUserId));
+
+
 const formattedDetails = payload.details.map((item) =>
       typeof item === 'string' ? JSON.parse(item) : item
     );
@@ -265,7 +283,7 @@ const formattedDetails = payload.details.map((item) =>
         Quality: groupDetails[0].uniqueId,
         Quality_Desc: groupDetails[0].group_name,
         Quantity: groupDetails[0].qty.toString(),
-        Total_available_points: sourceUser.totalPoints.toString(),
+        Total_available_points: sourceUser.balancePoints.toString(),
         Total_Transferred_Points: payload.pointsAllocated.toString(),
       };
 const lineItems: ClaimPostPayload[]=[]
@@ -292,7 +310,7 @@ const lineItems: ClaimPostPayload[]=[]
         Quality: item.uniqueId,
         Quality_Desc: item.group_name,
         Quantity: item.qty.toString(),
-        Total_available_points: sourceUser.totalPoints.toString(),
+        Total_available_points: sourceUser.balancePoints.toString(),
         Total_Transferred_Points: payload.pointsAllocated.toString(),
       })
     )

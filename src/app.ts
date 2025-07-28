@@ -9,6 +9,8 @@ import { RedisClient } from "./services/redis.service";
 //import { initializeAgent } from "./utills/serverAgent";
 import logger from "./services/logger.service";
 import NavisionService from "./services/navision.service";
+import { Logger } from "winston";
+import { MaintenanceAgent } from "./utills/serverAgent";
 //import NavisionService from "./services/navision.service";
 
 class App {
@@ -21,8 +23,43 @@ class App {
     this.initializeFileService();
     this.corsConfig();
     this.initializeMiddleware();
-    //initializeAgent(logger);
+    this.initializeAgent(logger);
     this.setupRoutes();
+  }
+  initializeAgent(logger: Logger) {
+  const agent = new MaintenanceAgent(logger);
+
+  // Example daily task: Clear temporary files every day at 02:00 IST
+  agent.registerTask({
+    name: 'syncNavisionData',
+    schedule: {
+      type: 'daily',
+      time: '09:00',
+    },
+    execute: async () => {
+      // Logic to clear temporary files
+      logger.info('Sync Navision data...');
+      const navisionService = new NavisionService();
+      await navisionService.syncCustomer();
+      await navisionService.syncVendor();
+      await navisionService.syncRetail();
+      await navisionService.syncNotifyCustomer();
+      await navisionService.syncSalesPersonList();
+      await navisionService.syncSalesLedger();
+      await navisionService.syncSalesClaimTransfer();
+      await navisionService.onboardAllRetailer();
+      await navisionService.onboardDistributors();
+      await navisionService.onboardSalesPerson();
+      await navisionService.mapDist2();
+      await navisionService.mapSalesPerson();
+      await navisionService.distributorPoints();
+      await navisionService.totalPoints();
+      await navisionService.claimPoints();
+      await navisionService.balancePoints();
+      logger.info(`Sync Navision data complete at ${new Date()}`);
+    },
+  });
+   
   }
 
   private loadEnvironmentVariables(): void {

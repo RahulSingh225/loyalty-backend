@@ -198,7 +198,7 @@ console.log(retailerDetails)
         Quality: '',
         Quality_Desc: '',
         Quantity: '0',
-        Total_available_points: retailerDetails.totalPoints.toString(),
+        Total_available_points: retailerDetails.balancePoints.toString(),
         Total_Transferred_Points: payload.rewards.reduce((acc, reward) => acc + reward.amount, 0).toString(),
       };
 
@@ -234,7 +234,7 @@ console.log(retailerDetails)
           Quality: giftDetails.uniqueId,
           Quality_Desc: giftDetails.giftName,
           Quantity: item.quantity.toString(),
-          Total_available_points: retailerDetails.totalPoints.toString(),
+          Total_available_points: retailerDetails.balancePoints.toString(),
           Total_Transferred_Points: payload.rewards.reduce((acc, reward) => acc + reward.amount, 0).toString(),
         };
         lineItems.push(lineItem);
