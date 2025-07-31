@@ -139,24 +139,23 @@ class App {
 
  this.app.get("/sync",async (req:Request,res,Response)=>{
 
-    const nav = new NavisionService();
-   // await nav.syncCustomer();
-    //await nav.syncRetail()
-    //await nav.syncNotifyCustomer()
-     //await nav.syncSalesLedger()
-    //await nav.syncSalesClaimTransfer()
-     //await nav.syncSalesPersonList()
-     //await nav.syncRetailerReward();
-     //await nav.syncRedemptionRequest();
-     //await nav.syncVendor()
-    //await nav.totalPoints();
-    //await nav.claimPoints();
-    //await nav.balancePoints();
-    //await nav.mapSalesPerson();
-    //await nav.onboardSalesPerson();
-    //await nav.mapDist2()
-    //await nav.onboardDistributors()
-
+    const navisionService = new NavisionService();
+  // await navisionService.syncCustomer();
+  //     await navisionService.syncVendor();
+  //     await navisionService.syncRetail();
+  //     await navisionService.syncNotifyCustomer();
+  //     await navisionService.syncSalesPersonList();
+  //     await navisionService.syncSalesLedger();
+       //await navisionService.syncSalesClaimTransfer();
+  //     await navisionService.onboardAllRetailer();
+  //     await navisionService.onboardDistributors();
+  //     await navisionService.onboardSalesPerson();
+  //     await navisionService.mapDist2();
+  //     await navisionService.mapSalesPerson();
+      await navisionService.distributorPoints();
+      //await navisionService.totalPoints();
+      //await navisionService.claimPoints();
+      //await navisionService.balancePoints();
 
 
 

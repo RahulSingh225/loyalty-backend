@@ -478,7 +478,23 @@ async  bulkInsertCustomers(customers) {
     const result = await db
       .insert(navisionCustomerMaster)
       .values(customersWithSchemaFields)
-      .onConflictDoNothing({ target: navisionCustomerMaster.no })
+      .onConflictDoUpdate({ target: navisionCustomerMaster.no,set:{
+        name: sql`EXCLUDED."Name"`,
+        address: sql`EXCLUDED."Address"`,
+        address2: sql`EXCLUDED."Address_2"`,
+        city: sql`EXCLUDED."City"`,
+        postCode: sql`EXCLUDED."Post_Code"`,
+        stateCode: sql`EXCLUDED."State_Code"`,
+        countryRegionCode: sql`EXCLUDED."Country_Region_Code"`,
+        whatsappNo1: sql`EXCLUDED."Whatsapp_No_1"`,
+        whatsappNo2: sql`EXCLUDED."Whatsapp_No_2"`,
+        pANNo: sql`EXCLUDED."P_A_N_No"`,
+        gstRegistrationNo: sql`EXCLUDED."GST_Registration_No"`,
+        salesAgent: sql`EXCLUDED."Sales_Agent"`,
+        salesAgentName: sql`EXCLUDED."Sales_Agent_Name"`,
+        salespersonCode: sql`EXCLUDED."Salesperson_Code"`,
+        etag: sql`EXCLUDED."ETag"`,
+      } })
       .returning();
 
     const insertedCount = result.length;
@@ -487,6 +503,7 @@ async  bulkInsertCustomers(customers) {
 
     return result;
   } catch (error) {
+    fs.appendFileSync('log.txt', JSON.stringify(error));
     // Enhanced error logging
     console.error('Error inserting customers:', {
       message: error.message,
@@ -599,7 +616,26 @@ async  bulkInsertVendors(vendors: any[]) {
     const result = await db
       .insert(navisionVendorMaster)
       .values(vendorsWithSchemaFields)
-      .onConflictDoNothing({ target: navisionVendorMaster.no }) // Skip duplicates based on primary key
+      .onConflictDoUpdate({ target: navisionVendorMaster.no , set: {
+          name: sql`EXCLUDED."Name"`,
+          address: sql`EXCLUDED."Address"`,
+          address2: sql`EXCLUDED."Address_2"`,
+          city: sql`EXCLUDED."City"`,
+          postCode: sql`EXCLUDED."Post_Code"`,
+          stateCode: sql`EXCLUDED."State_Code"`,
+          countryRegionCode: sql`EXCLUDED."Country_Region_Code"`,
+          whatsappNo: sql`EXCLUDED."Whatsapp_No"`,
+          whatsappMobileNumber: sql`EXCLUDED."Whatsapp_Mobile_Number"`,
+          pANNo: sql`EXCLUDED."P_A_N_No"`,
+          gstRegistrationNo: sql`EXCLUDED."GST_Registration_No"`,
+          beatName: sql`EXCLUDED."Beat_Name"`,
+          salesAgentCustomer: sql`EXCLUDED."Sales_Agent_Customer"`,
+          pointClaimCustomerType: sql`EXCLUDED."Point_Claim_Customer_Type"`,
+          ogs: sql`EXCLUDED."OGS"`,
+          gujarat: sql`EXCLUDED."Gujarat"`,
+          etag: sql`EXCLUDED."ETag"`,
+     
+        },}) // Skip duplicates based on primary key
       .returning();
 
     console.log(`Inserted ${result.length} vendors successfully`);
@@ -750,8 +786,28 @@ async  bulkInsertVendors(vendors: any[]) {
     const result = await db
       .insert(navisionRetailMaster)
       .values(retailersWithSchemaFields)
-      .onConflictDoNothing({ target: navisionRetailMaster.no })
-      .returning();
+      .onConflictDoUpdate({ target: navisionRetailMaster.no ,  set: {
+          address2: sql`EXCLUDED."Address_2"`,
+          city: sql`EXCLUDED."City"`,
+          pinCode: sql`EXCLUDED."Pin_Code"`,
+          state: sql`EXCLUDED."State"`,
+          countryRegionCode: sql`EXCLUDED."Country_Region_Code"`,
+          whatsappNo: sql`EXCLUDED."Whatsapp_No"`,
+          whatsappNo2: sql`EXCLUDED."Whatsapp_No_2"`,
+          pANNo: sql`EXCLUDED."P_A_N_No"`,
+          gstRegistrationNo: sql`EXCLUDED."GST_Registration_No"`,
+          beatName: sql`EXCLUDED."Beat_Name"`,
+          shopName: sql`EXCLUDED."Shop_Name"`,
+          shopAddress: sql`EXCLUDED."Shop_Address"`,
+          agentCode: sql`EXCLUDED."Agent_Code"`,
+          aadhaarNo: sql`EXCLUDED."Aadhaar_No"`,
+          supplyFrom: sql`EXCLUDED."Supply_From"`,
+          agentName: sql`EXCLUDED."Agent_Name"`,
+          salesPersonCode: sql`EXCLUDED."Sales_Person_Code"`,
+          salesPersonName: sql`EXCLUDED."Sales_Person_Name"`,
+          gujarat: sql`EXCLUDED."Gujarat"`,
+          etag: sql`EXCLUDED."ETag"`,
+        },}).returning() // Skip duplicates based on primary key
 
     const insertedCount = result.length;
     const skippedCount = retailers.length - insertedCount - validationErrors.length;
@@ -806,7 +862,24 @@ async  bulkInsertNavisionNotifyCustomer(dataArray) {
     await db
       .insert(navisionNotifyCustomer)
       .values(values)
-      .onConflictDoNothing({ target: navisionNotifyCustomer.no });
+      .onConflictDoUpdate({ target: navisionNotifyCustomer.no,set: {
+          name: sql`EXCLUDED.name`,
+          address: sql`EXCLUDED.address`,
+          address2: sql`EXCLUDED.address_2`,
+          city: sql`EXCLUDED.city`,
+          postCode: sql`EXCLUDED.post_code`,
+          stateCode: sql`EXCLUDED.state_code`,
+          countryRegionCode: sql`EXCLUDED.country_region_code`,
+          whatsappNo: sql`EXCLUDED.whatsapp_no`,
+          whatsappNo2: sql`EXCLUDED.whatsapp_no_2`,
+          salesAgent: sql`EXCLUDED.sales_agent`,
+          salesAgentName: sql`EXCLUDED.sales_agent_name`,
+          salesPerson: sql`EXCLUDED.sales_person`,
+          agentCodeVisibility: sql`EXCLUDED.agent_code_visibility`,
+          pANNo: sql`EXCLUDED.p_a_n_no`,
+          gstRegistrationNo: sql`EXCLUDED.gst_registration_no`,
+          etag: sql`EXCLUDED.etag`,
+        }});
 
     console.log(`Inserted ${dataArray.length} records into navision_notify_customer`);
   } catch (error) {
@@ -1063,7 +1136,7 @@ async  onboardDistributors(): Promise<void> {
   } catch (error) {
     console.error('Error fetching vendors:', error);
   } finally {
-    await pool.end();
+    //await pool.end();
   }
 }
 
@@ -1359,7 +1432,7 @@ async  onboardAllRetailer() {
     //fs.appendFileSync('onboardAllRetailers_log.txt', `${new Date().toISOString()}: ${errorMsg}\n`);
     throw err;
   } finally {
-    await pool.end();
+    //await pool.end();
   }
 }
 
@@ -1622,73 +1695,93 @@ async mapSalesPerson() {
 async distributorPoints() {
   try {
 
-await db.execute(sql `UPDATE distributor
-SET total_points = 
-   
-        (SELECT SUM(sales_points) AS total_points
-        FROM public.sales_point_ledger_entry
-        WHERE agent_code = distributor.navision_id
-          AND document_type = 'Invoice'
-          AND scheme = '${GlobalState.schemeFilter}') `)
+await db.execute(sql `
+UPDATE distributor
+  SET total_points = COALESCE((
+    SELECT SUM(spl.sales_points)
+    FROM public.sales_point_ledger_entry spl
+    WHERE spl.agent_code = distributor.navision_id
+      AND spl.document_type = 'Invoice'
+      AND spl.scheme = ${GlobalState.schemeFilter}
+  ), 0)
+          `)
 
-   await db.execute(sql `UPDATE distributor
-SET balance_points = COALESCE(total_points, 0) - (
-    SELECT COALESCE(SUM(total_points), 0) AS total_transferred
-    FROM (
-        SELECT SUM(sales_points) AS total_points
-        FROM public.sales_point_ledger_entry
-        WHERE agent_code = distributor.navision_id
-          AND document_type = 'Transfer'
-          AND scheme = '${GlobalState.schemeFilter}'
-          AND customer_is_agent = false
-          AND retailer_no <> ''
-        UNION ALL
-        SELECT SUM(sales_points) AS total_points
-        FROM public.sales_point_ledger_entry
-        WHERE agent_code = distributor.navision_id
-          AND document_type = 'Transfer'
-          AND scheme = '${GlobalState.schemeFilter}'
-          AND customer_is_agent = false
-          AND customer_no <> ''
-          AND retailer_no = ''
-          AND notify_customer_no = ''
-          AND quantity > 0
-        UNION ALL
-        SELECT SUM(sales_points) AS total_points
-        FROM public.sales_point_ledger_entry
-        WHERE agent_code = distributor.navision_id
-          AND document_type = 'Transfer'
-          AND scheme = '${GlobalState.schemeFilter}'
-          AND customer_is_agent = false
-          AND customer_no = ''
-          AND retailer_no = ''
-          AND notify_customer_no <> ''
-          AND quantity > 0
-        UNION ALL
-        SELECT SUM(CAST(sales_point AS INTEGER)) AS total_points
-        FROM public.sales_points_claim_transfer
-        WHERE agent_code = distributor.navision_id
-          AND scheme = '${GlobalState.schemeFilter}'
-          AND entry_type = 'Points Transfer'
-          AND status = 'Submitted'
-          AND document_no in (
-              SELECT document_no
-              FROM public.sales_points_claim_transfer
-              WHERE agent_code = distributor.navision_id
-                AND scheme = '${GlobalState.schemeFilter}'
-                AND entry_type = 'Points Transfer'
-                AND status = 'Submitted'
-                AND line_type = 'Header'
-          )
-    ) AS combined_points
-);`)
+   await db.execute(sql`
+    WITH earned_points AS (
+  SELECT agent_code, COALESCE(SUM(sales_points), 0) AS total_earned
+  FROM public.sales_point_ledger_entry
+  WHERE document_type = 'Invoice'
+    AND scheme = ${GlobalState.schemeFilter}
+    AND customer_is_agent = true
+  GROUP BY agent_code
+),
+transferred_points AS (
+  SELECT agent_code, COALESCE(SUM(total_points), 0) AS total_transferred
+  FROM (
+    SELECT agent_code, SUM(sales_points) AS total_points
+    FROM public.sales_point_ledger_entry
+    WHERE document_type = 'Transfer'
+      AND scheme = ${GlobalState.schemeFilter}
+      AND customer_is_agent = false
+      AND retailer_no <> ''
+    GROUP BY agent_code
+    UNION ALL
+    SELECT agent_code, SUM(sales_points) AS total_points
+    FROM public.sales_point_ledger_entry
+    WHERE document_type = 'Transfer'
+      AND scheme = ${GlobalState.schemeFilter}
+      AND customer_is_agent = false
+      AND customer_no <> ''
+      AND retailer_no = ''
+      AND notify_customer_no = ''
+      AND quantity > 0
+    GROUP BY agent_code
+    UNION ALL
+    SELECT agent_code, SUM(sales_points) AS total_points
+    FROM public.sales_point_ledger_entry
+    WHERE document_type = 'Transfer'
+      AND scheme = ${GlobalState.schemeFilter}
+      AND customer_is_agent = false
+      AND customer_no = ''
+      AND retailer_no = ''
+      AND notify_customer_no <> ''
+      AND quantity > 0
+    GROUP BY agent_code
+    UNION ALL
+    SELECT agent_code, SUM(CAST(sales_point AS INTEGER)) AS total_points
+    FROM public.sales_points_claim_transfer
+    WHERE scheme = ${GlobalState.schemeFilter}
+      AND entry_type = 'Points Transfer'
+      AND status = 'Submitted'
+      AND line_type = 'Header'
+    GROUP BY agent_code
+  ) AS combined_points
+  GROUP BY agent_code
+)
+UPDATE distributor d
+SET balance_points = COALESCE((
+  SELECT ep.total_earned
+  FROM earned_points ep
+  WHERE ep.agent_code = d.navision_id
+), 0) - COALESCE((
+  SELECT tp.total_transferred
+  FROM transferred_points tp
+  WHERE tp.agent_code = d.navision_id
+), 0);
+  `);
 await db
       .update(distributor)
       .set({
         consumedPoints: sql`${distributor.totalPoints} - ${distributor.balancePoints}`,
       }) 
-    await db.update(userMaster).set({totalPoints:distributor.totalPoints,balancePoints:distributor.balancePoints,redeemedPoints:distributor.consumedPoints}).where(eq(userMaster.userId,distributor.userId))
-
+await db.execute(sql`
+      UPDATE user_master
+      SET total_points = distributor.total_points,
+          balance_points = distributor.balance_points,
+          redeemed_points = distributor.consumed_points
+      FROM distributor
+      WHERE user_master.user_id = distributor.user_id
+    `);
   } catch (error) {
     console.error('Error fetching distributors:', error);
     throw new Error(`Failed to fetch distributors: ${error.message}`);
