@@ -267,14 +267,22 @@ class NavisionService {
 
 async syncSalesLedger() {
     try {
-        const pageSize = 1000;
+        const pageSize = 50000;
+        const batchSize = 1000;
         let skip = 0;
         let hasMoreData = true;
 
         while (hasMoreData) {
             const url = `${process.env.NAVISION_URL}/SalesPointsLedgerEntries_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
             const result = await this.makeRequest(url, 'GET');
-            await this.bulkInsertSalesPointLedgerEntry(result.value);
+            
+            // Process records in batches of 1000
+            for (let i = 0; i < result.value.length; i += batchSize) {
+                const batch = result.value.slice(i, i + batchSize);
+                await this.bulkInsertSalesPointLedgerEntry(batch);
+                console.log(`Inserted batch of ${batch.length} records. Total processed: ${skip + i + batch.length}`);
+            }
+
             hasMoreData = result.value && result.value.length === pageSize;
             skip += pageSize;
         }
@@ -305,17 +313,24 @@ async syncNotifyCustomer() {
 
 async syncSalesClaimTransfer() {
     try {
-        const pageSize = 1000;
+        const pageSize = 50000;
+        const batchSize = 1000;
         let skip = 0;
         let hasMoreData = true;
 
         while (hasMoreData) {
             const url = `${process.env.NAVISION_URL}/SalesPointClaim_Transfer_LoyaltyApp?$top=${pageSize}&$skip=${skip}`;
             const result = await this.makeRequest(url, 'GET');
-            await this.bulkInsertSalesPointsClaimTransfer(result.value);
+            
+            // Process records in batches of 1000
+            for (let i = 0; i < result.value.length; i += batchSize) {
+                const batch = result.value.slice(i, i + batchSize);
+                await this.bulkInsertSalesPointsClaimTransfer(batch);
+                console.log(`Inserted batch of ${batch.length} records. Total processed: ${skip + i + batch.length}`);
+            }
+
             hasMoreData = result.value && result.value.length === pageSize;
             skip += pageSize;
-            console.log('Total records inserted', skip);
         }
     } catch (error: any) {
         console.error('Error syncing sales claim transfer:', error);
@@ -1177,7 +1192,7 @@ async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResu
         const deviceDetailsJson = data.device_details ? JSON.stringify(data.device_details) : null;
       const existing  = await db.select().from(retailer).where(eq(retailer.navisionId,data.navision_id))
       let result;
-      if(existing){
+      if(existing.length){
         result  =await client.query(`SELECT update_retailer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) AS result`,[
           data.username,
           data.mobile_number,
@@ -1874,7 +1889,7 @@ async totalPoints() {
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
           isNotNull(salesPointLedgerEntry.retailerNo),
-          eq(salesPointLedgerEntry.scheme, INVOICE_SCHEME)
+          eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter)
         )
       )
       .groupBy(salesPointLedgerEntry.retailerNo);
@@ -1889,7 +1904,7 @@ async totalPoints() {
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
           isNotNull(salesPointLedgerEntry.customerNo),
-          eq(salesPointLedgerEntry.scheme, INVOICE_SCHEME)
+          eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter)
         )
       )
       .groupBy(salesPointLedgerEntry.customerNo);
@@ -1905,7 +1920,7 @@ async totalPoints() {
         and(
           ne(salesPointLedgerEntry.documentType, 'Claim'),
           isNotNull(salesPointLedgerEntry.notifyCustomerNo),
-          eq(salesPointLedgerEntry.scheme,INVOICE_SCHEME )
+          eq(salesPointLedgerEntry.scheme,GlobalState.schemeFilter )
         )
       )
       .groupBy(salesPointLedgerEntry.notifyCustomerNo);

@@ -146,12 +146,12 @@ class App {
   //     await navisionService.syncNotifyCustomer();
   //     await navisionService.syncSalesPersonList();
   //     await navisionService.syncSalesLedger();
-       await navisionService.syncSalesClaimTransfer();
-      await navisionService.onboardAllRetailer();
-      await navisionService.onboardDistributors();
-      await navisionService.onboardSalesPerson();
-      await navisionService.mapDist2();
-      await navisionService.mapSalesPerson();
+       //await navisionService.syncSalesClaimTransfer();
+      // await navisionService.onboardAllRetailer();
+      // await navisionService.onboardDistributors();
+      // await navisionService.onboardSalesPerson();
+      // await navisionService.mapDist2();
+      // await navisionService.mapSalesPerson();
       await navisionService.distributorPoints();
       await navisionService.totalPoints();
       await navisionService.claimPoints();
