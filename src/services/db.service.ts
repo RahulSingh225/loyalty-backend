@@ -15,6 +15,6 @@ export const pool = new Pool({
 });
 
 // Initialize drizzle instance
-export const db = drizzle(pool, { logger:true,schema });
+export const db = drizzle(pool, { logger:false,schema });
 
 

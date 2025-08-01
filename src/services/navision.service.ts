@@ -1084,9 +1084,12 @@ async  onboardDistributors(): Promise<void> {
         const password = await this.generatePassword();
         const userType = 'distributor'; // Default user type
         const deviceDetails = {}; // Placeholder; replace with actual data if available
-
-        // Call onboard_distributor function
-        const result = await pool.query(
+        const exists = await db.select().from(distributor).where(eq(distributor.navisionId,vendor.no))
+        if(exists.length){
+          await db.update(distributor).set({distributorName: vendor.name, phoneNumber: vendor.whatsappNo, address: vendor.address,}).where(eq(distributor.navisionId,vendor.no));
+          await db.update(userMaster).set({username:vendor.name,mobileNumber:vendor.whatsappNo,secondaryMobileNumber:vendor.whatsappMobileNumber}).where(eq(userMaster.userId,exists[0].userId));
+        }else{
+            const result = await pool.query(
           `SELECT * FROM onboard_distributor($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
           [
             vendor.name,
@@ -1124,11 +1127,15 @@ async  onboardDistributors(): Promise<void> {
               onboardedAt: sql`CURRENT_TIMESTAMP`,
             })
             .where(eq(navisionVendorMaster.no, vendor.no));
-
-          console.log(`Successfully onboarded vendor ${vendor.no}: user_id=${response.user_id}, distributor_id=${response.distributor_id}`);
+             console.log(`Successfully onboarded vendor ${vendor.no}: user_id=${response.user_id}, distributor_id=${response.distributor_id}`);
         } else {
           console.error(`Failed to onboard vendor ${vendor.no}: ${response.error}`);
         }
+        }
+        // Call onboard_distributor function
+      
+
+         
       } catch (error) {
         console.error(`Error onboarding vendor ${vendor.no}:`, error);
       }
@@ -1692,6 +1699,132 @@ async mapSalesPerson() {
   }
 }
 
+async test(){
+
+  const distirbutors = await db.select({navId:distributor.navisionId,userId:distributor.userId}).from(distributor)
+
+  for await (const d of distirbutors){
+   
+     const query1 = db
+    .select({
+      total_points: sql<number>`SUM(${salesPointLedgerEntry.salesPoints})`.as('total_points'),
+    })
+    .from(salesPointLedgerEntry)
+    .where(
+      and(
+        eq(salesPointLedgerEntry.documentType, 'Transfer'),
+        eq(salesPointLedgerEntry.agentCode, d.navId),
+        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.customerIsAgent, false),
+        ne(salesPointLedgerEntry.retailerNo, '')
+      )
+    );
+
+  // Second subquery: customer_no is not empty, retailer_no is empty, notify_customer_no is empty, quantity > 0
+  const query2 = db
+    .select({
+      total_points: sql<number>`SUM(${salesPointLedgerEntry.salesPoints})`.as('total_points'),
+    })
+    .from(salesPointLedgerEntry)
+    .where(
+      and(
+        eq(salesPointLedgerEntry.documentType, 'Transfer'),
+        eq(salesPointLedgerEntry.agentCode, d.navId),
+        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.customerIsAgent, false),
+        ne(salesPointLedgerEntry.customerNo, ''),
+        eq(salesPointLedgerEntry.retailerNo, ''),
+        eq(salesPointLedgerEntry.notifyCustomerNo, ''),
+        sql`${salesPointLedgerEntry.quantity} > 0`
+      )
+    );
+
+  // Third subquery: customer_no is empty, retailer_no is empty, notify_customer_no is not empty, quantity > 0
+  const query3 = db
+    .select({
+      total_points: sql<number>`SUM(${salesPointLedgerEntry.salesPoints})`.as('total_points'),
+    })
+    .from(salesPointLedgerEntry)
+    .where(
+      and(
+        eq(salesPointLedgerEntry.documentType, 'Transfer'),
+        eq(salesPointLedgerEntry.agentCode, d.navId),
+        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.customerIsAgent, false),
+        eq(salesPointLedgerEntry.customerNo, ''),
+        eq(salesPointLedgerEntry.retailerNo, ''),
+        ne(salesPointLedgerEntry.notifyCustomerNo, ''),
+        sql`${salesPointLedgerEntry.quantity} > 0`
+      )
+    );
+
+  // Execute all queries
+  const [result1, result2, result3] = await Promise.all([query1, query2, query3]);
+
+  // Extract total_points from each result, defaulting to 0 if null
+  const total1 = result1[0]?.total_points ?? 0;
+  const total2 = result2[0]?.total_points ?? 0;
+  const total3 = result3[0]?.total_points ?? 0;
+
+  // Sum the results
+  const total_transferred = Number(total1) + Number(total2) + Number(total3);
+const subquery = db
+    .select({ document_no: salesPointsClaimTransfer.documentNo })
+    .from(salesPointsClaimTransfer)
+    .where(
+      and(
+        eq(salesPointsClaimTransfer.agentCode, d.navId),
+        eq(salesPointsClaimTransfer.scheme, 'SCHEME 1'),
+        eq(salesPointsClaimTransfer.entryType, 'Points Transfer'),
+        eq(salesPointsClaimTransfer.status, 'Submitted'),
+        eq(salesPointsClaimTransfer.lineType, 'Header')
+      )
+    );
+
+  // Main query: Sum sales_point where document_no is in subquery results
+  const result = await db
+    .select({
+      total_points: sql<number>`COALESCE(SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)), 0)`.as('total_points'),
+    })
+    .from(salesPointsClaimTransfer)
+    .where(
+      and(
+        eq(salesPointsClaimTransfer.agentCode, d.navId),
+        eq(salesPointsClaimTransfer.scheme, 'SCHEME 1'),
+        eq(salesPointsClaimTransfer.entryType, 'Points Transfer'),
+        eq(salesPointsClaimTransfer.status, 'Submitted'),
+        inArray(salesPointsClaimTransfer.documentNo, subquery)
+      )
+    );
+
+  // Extract total_points from the result
+  const total_submitted = result[0]?.total_points ?? 0;
+
+
+   const agentResult = await db
+    .select({
+      total_agent: sql<number>`COALESCE(SUM(${salesPointLedgerEntry.salesPoints}), 0)`.as('total_agent'),
+    })
+    .from(salesPointLedgerEntry)
+    .where(
+      and(
+        eq(salesPointLedgerEntry.documentType, 'Invoice'),
+        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.agentCode, d.navId),
+        eq(salesPointLedgerEntry.customerIsAgent, true)
+      )
+    );
+
+  // Extract total_agent from the result
+  const total_agent = agentResult[0]?.total_agent ?? 0;
+
+  const total_available = total_agent - total_transferred - total_submitted
+console.log(d.navId,total_available)
+  await db.update(distributor).set({balancePoints:total_available}).where(eq(distributor.navisionId,d.navId))
+  await db.update(userMaster).set({balancePoints:String(total_available)}).where(eq(userMaster.userId,d.userId))
+
+}
+}
 async distributorPoints() {
   try {
 
@@ -1706,69 +1839,7 @@ UPDATE distributor
   ), 0)
           `)
 
-   await db.execute(sql`
-    WITH earned_points AS (
-  SELECT agent_code, COALESCE(SUM(sales_points), 0) AS total_earned
-  FROM public.sales_point_ledger_entry
-  WHERE document_type = 'Invoice'
-    AND scheme = ${GlobalState.schemeFilter}
-    AND customer_is_agent = true
-  GROUP BY agent_code
-),
-transferred_points AS (
-  SELECT agent_code, COALESCE(SUM(total_points), 0) AS total_transferred
-  FROM (
-    SELECT agent_code, SUM(sales_points) AS total_points
-    FROM public.sales_point_ledger_entry
-    WHERE document_type = 'Transfer'
-      AND scheme = ${GlobalState.schemeFilter}
-      AND customer_is_agent = false
-      AND retailer_no <> ''
-    GROUP BY agent_code
-    UNION ALL
-    SELECT agent_code, SUM(sales_points) AS total_points
-    FROM public.sales_point_ledger_entry
-    WHERE document_type = 'Transfer'
-      AND scheme = ${GlobalState.schemeFilter}
-      AND customer_is_agent = false
-      AND customer_no <> ''
-      AND retailer_no = ''
-      AND notify_customer_no = ''
-      AND quantity > 0
-    GROUP BY agent_code
-    UNION ALL
-    SELECT agent_code, SUM(sales_points) AS total_points
-    FROM public.sales_point_ledger_entry
-    WHERE document_type = 'Transfer'
-      AND scheme = ${GlobalState.schemeFilter}
-      AND customer_is_agent = false
-      AND customer_no = ''
-      AND retailer_no = ''
-      AND notify_customer_no <> ''
-      AND quantity > 0
-    GROUP BY agent_code
-    UNION ALL
-    SELECT agent_code, SUM(CAST(sales_point AS INTEGER)) AS total_points
-    FROM public.sales_points_claim_transfer
-    WHERE scheme = ${GlobalState.schemeFilter}
-      AND entry_type = 'Points Transfer'
-      AND status = 'Submitted'
-      AND line_type = 'Header'
-    GROUP BY agent_code
-  ) AS combined_points
-  GROUP BY agent_code
-)
-UPDATE distributor d
-SET balance_points = COALESCE((
-  SELECT ep.total_earned
-  FROM earned_points ep
-  WHERE ep.agent_code = d.navision_id
-), 0) - COALESCE((
-  SELECT tp.total_transferred
-  FROM transferred_points tp
-  WHERE tp.agent_code = d.navision_id
-), 0);
-  `);
+   await this.test()
 await db
       .update(distributor)
       .set({
