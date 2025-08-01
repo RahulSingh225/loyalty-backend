@@ -26,4 +26,19 @@ this.transactionRepository = new TransactionRepository()
         }
        
     }
+
+    async updateTransaction(req, res) {
+        try {
+            const transactionData = req.body;
+            if(transactionData && !transactionData.documentNo || !transactionData.lineNo || !transactionData.status) {
+                return res.status(400).json({ success: false, message: 'Invalid transaction data' });
+            }
+
+            const updatedTransaction = await this.transactionRepository.updateNavisionEntry(transactionData);
+            res.json({ success: true, data: updatedTransaction });
+        } catch (error) {
+            console.error('Error updating transaction:', error);
+            res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+    }
 }

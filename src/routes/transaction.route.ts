@@ -9,5 +9,5 @@ import { authMiddleware } from '../middleware/auth.middleware'
 
 transactionRouter.get('/passbook',authMiddleware.verifyJWT,(req,res)=>transactionController.getPassbook(req,res))
 //transactionRouter.post('/')
-
+transactionRouter.post('/updateTransaction',authMiddleware.verifyAPIKey,(req,res)=>transactionController.updateTransaction(req,res))
 export default transactionRouter
