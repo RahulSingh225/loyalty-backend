@@ -34,4 +34,6 @@ redemptionRouter.get(
   authMiddleware.verifyJWT,
   redemptionController.getRedemptions.bind(redemptionController)
 );
+
+
 export default redemptionRouter;

@@ -1,7 +1,8 @@
 import { eq,and,or } from "drizzle-orm"
-import { salesPointLedgerEntry,retailer,distributor, salesperson } from "../db/schema"
+import { salesPointLedgerEntry,retailer,distributor, salesperson, salesPointsClaimTransfer } from "../db/schema"
 import { db } from "../services/db.service"
 import { GlobalState } from "../configs/config"
+import NavisionService from "../services/navision.service";
 
 export default class TransactionRepository {
 
@@ -54,6 +55,35 @@ console.log(result.length)
         
     }
 
+
+    async updateNavisionEntry(transactionData:any){
+      const { documentNo, lineNo, status } = transactionData;
+
+      // Validate input
+      if (!documentNo || !lineNo || !status) {
+        throw new Error('Invalid transaction data');
+      }
+
+      // Update the entry in the database
+      const result = await db.update(salesPointsClaimTransfer)
+        .set({ status: status })
+        .where(and(
+          eq(salesPointsClaimTransfer.documentNo, documentNo),
+          eq(salesPointsClaimTransfer.lineNo, lineNo)
+        ))
+        .returning();
+       
+        
+      if (result.length === 0) {
+        throw new Error('Transaction not found or update failed');
+      }
+ const nav = new NavisionService();
+ await nav.distributorPoints();
+ await nav.totalPoints();
+await nav.claimPoints();
+await nav.balancePoints();
+      return result[0];
+    }
     
 
 }

@@ -166,6 +166,14 @@ export class AuthMiddleware {
     return isBefore(dateFromTimestamp, fiveMinutesAgo);
   }
 
+  verifyAPIKey = (req: Request, res: Response, next: NextFunction) => {
+    const apiKey = req.header('x-api-key');
+    if (!apiKey || apiKey !== process.env.API_KEY) {
+      return res.status(403).json({ message: 'Forbidden: Invalid API Key' });
+    }
+    next();
+  };
+
 }
 
 export const authMiddleware: AuthMiddleware = new AuthMiddleware();
