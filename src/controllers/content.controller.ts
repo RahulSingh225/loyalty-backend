@@ -17,6 +17,7 @@ export default class ContentController {
     const result =  await this.contentRepository.listContents(type);
     await Promise.all(result.map(async (content: any) => {
       content.imagePdfUrl = await this.fileService.generateSignedUrl(`RANJIT/${content.contentType}/${content.imagePdfUrl}`)
+      content.preview = content?.preview ? await this.fileService.generateSignedUrl(`RANJIT/${content.contentType}/${content.preview}`) : null;
     }));
     return res.status(200).json(result);
 } catch (error) {

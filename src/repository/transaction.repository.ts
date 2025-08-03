@@ -57,31 +57,30 @@ console.log(result.length)
 
 
     async updateNavisionEntry(transactionData:any){
-      const { documentNo, lineNo, status } = transactionData;
+      const { documentNo, status } = transactionData;
 
       // Validate input
-      if (!documentNo || !lineNo || !status) {
+      if (!documentNo  || !status) {
         throw new Error('Invalid transaction data');
       }
 
       // Update the entry in the database
       const result = await db.update(salesPointsClaimTransfer)
         .set({ status: status })
-        .where(and(
-          eq(salesPointsClaimTransfer.documentNo, documentNo),
-          eq(salesPointsClaimTransfer.lineNo, lineNo)
-        ))
+        .where(
+          eq(salesPointsClaimTransfer.documentNo, documentNo)
+        )
         .returning();
        
         
       if (result.length === 0) {
         throw new Error('Transaction not found or update failed');
       }
- const nav = new NavisionService();
- await nav.distributorPoints();
- await nav.totalPoints();
-await nav.claimPoints();
-await nav.balancePoints();
+//  const nav = new NavisionService();
+//  await nav.distributorPoints();
+//  await nav.totalPoints();
+// await nav.claimPoints();
+// await nav.balancePoints();
       return result[0];
     }
     

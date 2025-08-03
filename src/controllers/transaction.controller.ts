@@ -30,7 +30,7 @@ this.transactionRepository = new TransactionRepository()
     async updateTransaction(req, res) {
         try {
             const transactionData = req.body;
-            if(transactionData && !transactionData.documentNo || !transactionData.lineNo || !transactionData.status) {
+            if(transactionData && !transactionData.documentNo || !transactionData.status) {
                 return res.status(400).json({ success: false, message: 'Invalid transaction data' });
             }
 

@@ -22,6 +22,7 @@ class SchemeController {
       const result = await schemeRepository.getSchemes(1);
       await Promise.all(result.map(async (scheme: any) => {
       scheme.schemeResourcee = await fileService.generateSignedUrl(scheme.schemeResourcee)
+      scheme.schemePreview = scheme?.schemePreview ? await fileService.generateSignedUrl(scheme?.schemePreview) : null
     }));
       return res.status(200).json(result);
     } catch (error) {

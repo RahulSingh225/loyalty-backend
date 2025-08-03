@@ -34,5 +34,5 @@ export const FIREBASE_CONFIG = {
 };
 
 export const GlobalState = {
-  schemeFilter: 'SCHEME02', // Default value
+  schemeFilter: process.env.NAVISION_SCHEME, // Default value
 };
