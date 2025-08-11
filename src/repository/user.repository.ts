@@ -52,6 +52,7 @@ class UserRepository extends BaseRepository {
    * @throws Will throw an error if the database operation fails.
    */
   async onBoardRetailer(userData: any): Promise<any> {
+    
      const result:any = await this.db.execute(
       sql`SELECT * FROM public.onboard_retailer(
     ${userData.username},
@@ -69,7 +70,8 @@ class UserRepository extends BaseRepository {
     'retailer',
     ${userData.fcm_token||null},
     ${userData.navision_id || null},
-    ${JSON.stringify(userData.device_details)}::jsonb
+    ${JSON.stringify(userData.device_details)}::jsonb,
+    ${userData.home_address||null}
 )`
     );
     console.log('Onboard Retailer Result:', result);
