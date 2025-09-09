@@ -74,7 +74,7 @@ console.log(result.length)
        
         
       if (result.length === 0) {
-        throw new Error('Transaction not found or update failed');
+        throw new Error('Entry not found');
       }
 //  const nav = new NavisionService();
 //  await nav.distributorPoints();

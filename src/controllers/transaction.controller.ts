@@ -38,7 +38,7 @@ this.transactionRepository = new TransactionRepository()
             res.json({ success: true, data: updatedTransaction });
         } catch (error) {
             console.error('Error updating transaction:', error);
-            res.status(500).json({ success: false, message: 'Internal Server Error' });
+            res.status(200).json({ success: false, message: 'Entry not found' });
         }
     }
 }
