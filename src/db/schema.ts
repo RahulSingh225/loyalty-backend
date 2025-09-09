@@ -97,6 +97,35 @@ export const apiResponseLogs = pgTable("api_response_logs", {
 	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const distributor = pgTable("distributor", {
+	distributorId: serial("distributor_id").primaryKey().notNull(),
+	userId: integer("user_id").notNull(),
+	distributorName: varchar("distributor_name", { length: 255 }).notNull(),
+	contactPerson: varchar("contact_person", { length: 255 }),
+	phoneNumber: varchar("phone_number", { length: 20 }),
+	email: varchar({ length: 255 }),
+	address: text(),
+	city: varchar({ length: 100 }),
+	state: varchar({ length: 100 }),
+	zipCode: varchar("zip_code", { length: 20 }),
+	gstNumber: varchar("gst_number", { length: 15 }),
+	navisionId: varchar("navision_id", { length: 100 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	totalPoints: numeric("total_points").default('0'),
+	balancePoints: numeric("balance_points").default('0'),
+	consumedPoints: numeric("consumed_points").default('0'),
+	salesPersonCode: text("sales_person_code"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [userMaster.userId],
+			name: "distributor_user_id_fkey"
+		}),
+	unique("distributor_user_id_key").on(table.userId),
+	unique("distributor_navision_id_key").on(table.navisionId),
+]);
+
 export const navisionSalespersonList = pgTable("navision_salesperson_list", {
 	code: varchar({ length: 50 }),
 	name: varchar({ length: 100 }),
@@ -339,35 +368,6 @@ export const schemes = pgTable("schemes", {
 	schemePreview: text("scheme_preview"),
 });
 
-export const distributor = pgTable("distributor", {
-	distributorId: serial("distributor_id").primaryKey().notNull(),
-	userId: integer("user_id").notNull(),
-	distributorName: varchar("distributor_name", { length: 255 }).notNull(),
-	contactPerson: varchar("contact_person", { length: 255 }),
-	phoneNumber: varchar("phone_number", { length: 20 }),
-	email: varchar({ length: 255 }),
-	address: text(),
-	city: varchar({ length: 100 }),
-	state: varchar({ length: 100 }),
-	zipCode: varchar("zip_code", { length: 20 }),
-	gstNumber: varchar("gst_number", { length: 15 }),
-	navisionId: varchar("navision_id", { length: 100 }),
-	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
-	totalPoints: integer("total_points").default(0),
-	balancePoints: integer("balance_points").default(0),
-	consumedPoints: integer("consumed_points").default(0),
-	salesPersonCode: text("sales_person_code"),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [userMaster.userId],
-			name: "distributor_user_id_fkey"
-		}),
-	unique("distributor_user_id_key").on(table.userId),
-	unique("distributor_navision_id_key").on(table.navisionId),
-]);
-
 export const userRoles = pgTable("user_roles", {
 	roleId: serial("role_id").primaryKey().notNull(),
 	roleName: varchar("role_name", { length: 50 }).notNull(),
@@ -482,8 +482,6 @@ export const userMaster = pgTable("user_master", {
 			name: "user_master_role_id_fkey"
 		}),
 	unique("user_master_email_key").on(table.email),
-	unique("user_master_mobile_number_key").on(table.mobileNumber),
-	unique("user_master_secondary_mobile_number_key").on(table.secondaryMobileNumber),
 ]);
 
 export const navisionRetailMaster = pgTable("navision_retail_master", {
@@ -543,6 +541,16 @@ export const salesperson = pgTable("salesperson", {
 	unique("salesperson_user_id_key").on(table.userId),
 	unique("salesperson_navision_id_key").on(table.navisionId),
 ]);
+
+export const smsOtp = pgTable("sms_otp", {
+	id: serial().primaryKey().notNull(),
+	mobileNumber: text("mobile_number").notNull(),
+	otp: integer().notNull(),
+	smsContent: text("sms_content"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	apiResponse: text("api_response"),
+	isSent: boolean("is_sent").default(false),
+});
 
 export const rolePermissions = pgTable("role_permissions", {
 	roleId: integer("role_id").notNull(),

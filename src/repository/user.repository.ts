@@ -1,10 +1,11 @@
-import { and, eq, exists, inArray, ne, or, sql, sum } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, is, ne, or, sql, sum } from "drizzle-orm";
 import logger from '../services/logger.service'
-import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, navisionVendorMaster, retailer, salesperson, salesPointLedgerEntry, userMaster } from "../db/schema";
+import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, navisionVendorMaster, retailer, salesperson, salesPointLedgerEntry, smsOtp, userMaster } from "../db/schema";
 import { RedisClient } from "../services/redis.service";
 import { authMiddleware } from "../middleware/auth.middleware";
 import BaseRepository from "./base.repository";
 import { GlobalState } from "../configs/config";
+import { smsService } from "../services/sms.service";
 
 
 /**
@@ -218,11 +219,47 @@ class UserRepository extends BaseRepository {
    *                   type: string
    */
   
+
+  async sendOtp(mobileNumber:string){
+    try {
+         const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const result = await smsService.sendOtp(mobileNumber, otp, process.env.PROGRAM_NAME || "Ranjit");
+    if(result.type === 'success'){
+        await this.db.insert(smsOtp).values({
+            mobileNumber: mobileNumber,
+            otp: otp,
+            isSent:true})
+      return { success: true, message:'Otp sent successfully' };
+        }else{
+          return { success: false, message: 'Please retry again' };
+        }
+    } catch (error) {
+        return { success: false, message: 'Failed to send OTP' };
+    }
+   
+  }
+
+
+  async verfiyOtp(mobileNumber:string, otp:string){
+    const record = await this.db.select().from(smsOtp)
+    .where(and(
+        eq(smsOtp.mobileNumber, mobileNumber),
+        eq(smsOtp.otp, Number(otp))))
+    .orderBy(desc(sql`${smsOtp.createdAt}`))
+    .limit(1);
+if(record.length>0){
+    return { success: true, message:'Otp verified successfully',token: authMiddleware.generateMobileToken({mobile:mobileNumber}) };
+}else{
+    return { success: false, message: 'Invalid Otp' };
+}
+  }
+
   async loginUser(payload:any): Promise<any> {
 const result:any = await this.db.execute(
       sql`SELECT * FROM public.login_user(
           ${payload.mobile_number},
           ${'otp_verified'},
+          ${payload.user_type},
           ${payload.fcm_token},
           ${JSON.stringify(payload.device_details)}::jsonb
         )`)

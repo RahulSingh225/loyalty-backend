@@ -101,8 +101,8 @@ class AuthController{
         try {
           
             const payload = req.body;
-            if (!payload || !payload.mobile_number|| !payload.fcm_token) {
-                return res.status(400).json({ message: 'Bad request, mobile_number and fcm_token are required' });
+            if (!payload || !payload.mobile_number|| !payload.fcm_token ||!payload.user_type) {
+                return res.status(400).json({ message: 'Bad request, mobile_number and fcm_token and user_type are required' });
             }
             const user = await this.userService.loginUser(payload);
             return res.status(200).json(user);
@@ -111,7 +111,35 @@ class AuthController{
             res.status(400).json({ message:error.message, error });
         }
     }
-    
+
+    async verifyOtp(req:Request, res:Response) {
+      try { 
+        const payload = req.body;
+        if (!payload || !payload.mobile_number|| !payload.otp) {
+            return res.status(400).json({ message: 'Bad request, mobile_number and otp are required' });
+        }
+        const user = await this.userService.verfiyOtp(payload.mobile_number,payload.otp);
+        return res.status(200).json(user);
+    } catch (error) {
+      console.error('Login error:', error);
+       return res.status(400).json({ message:error.message, error });
+    }
+  }
+
+  async sendOtp(req:Request, res:Response) {
+    try { 
+      console.log('Request body:', req.body);
+      const payload = req.body;
+      if (!payload || !payload.mobile_number) {
+          return res.status(400).json({ message: 'Bad request, mobile_number required' });
+      }
+      const user = await this.userService.sendOtp(payload.mobile_number);
+    return res.status(200).json(user);
+    } catch (error) {
+    console.error('Login error:', error);
+        return res.status(400).json({ message:error.message, error });
+    }
+  }
 }
 
 export default AuthController;

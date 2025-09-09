@@ -97,9 +97,8 @@ export class AuthMiddleware {
   generateMobileToken = (payload: any): string => {
     return jwt.sign(
       {
-        mobile: payload.mobile,
-        country: payload.country,
-        countryCode: payload.countryCode,
+        mobile: payload.mobile
+       
       },
       JWT_SECRET,
       {

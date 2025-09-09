@@ -1,5 +1,36 @@
 import { relations } from "drizzle-orm/relations";
-import { userMaster, pointAllocationLog, redemptionRequest, transaction, distributor, notificationLog, redemptionRewardLines, retailer, userRoles, salesperson, permissions, rolePermissions } from "./schema";
+import { userMaster, distributor, pointAllocationLog, redemptionRequest, transaction, notificationLog, redemptionRewardLines, retailer, userRoles, salesperson, permissions, rolePermissions } from "./schema";
+
+export const distributorRelations = relations(distributor, ({one, many}) => ({
+	userMaster: one(userMaster, {
+		fields: [distributor.userId],
+		references: [userMaster.userId]
+	}),
+	retailers: many(retailer),
+	salespeople: many(salesperson),
+}));
+
+export const userMasterRelations = relations(userMaster, ({one, many}) => ({
+	distributors: many(distributor),
+	pointAllocationLogs_adminApprovedBy: many(pointAllocationLog, {
+		relationName: "pointAllocationLog_adminApprovedBy_userMaster_userId"
+	}),
+	pointAllocationLogs_sourceUserId: many(pointAllocationLog, {
+		relationName: "pointAllocationLog_sourceUserId_userMaster_userId"
+	}),
+	pointAllocationLogs_targetUserId: many(pointAllocationLog, {
+		relationName: "pointAllocationLog_targetUserId_userMaster_userId"
+	}),
+	redemptionRequests: many(redemptionRequest),
+	transactions: many(transaction),
+	notificationLogs: many(notificationLog),
+	retailers: many(retailer),
+	userRole: one(userRoles, {
+		fields: [userMaster.roleId],
+		references: [userRoles.roleId]
+	}),
+	salespeople: many(salesperson),
+}));
 
 export const pointAllocationLogRelations = relations(pointAllocationLog, ({one}) => ({
 	userMaster_adminApprovedBy: one(userMaster, {
@@ -19,28 +50,6 @@ export const pointAllocationLogRelations = relations(pointAllocationLog, ({one})
 	}),
 }));
 
-export const userMasterRelations = relations(userMaster, ({one, many}) => ({
-	pointAllocationLogs_adminApprovedBy: many(pointAllocationLog, {
-		relationName: "pointAllocationLog_adminApprovedBy_userMaster_userId"
-	}),
-	pointAllocationLogs_sourceUserId: many(pointAllocationLog, {
-		relationName: "pointAllocationLog_sourceUserId_userMaster_userId"
-	}),
-	pointAllocationLogs_targetUserId: many(pointAllocationLog, {
-		relationName: "pointAllocationLog_targetUserId_userMaster_userId"
-	}),
-	redemptionRequests: many(redemptionRequest),
-	transactions: many(transaction),
-	distributors: many(distributor),
-	notificationLogs: many(notificationLog),
-	retailers: many(retailer),
-	userRole: one(userRoles, {
-		fields: [userMaster.roleId],
-		references: [userRoles.roleId]
-	}),
-	salespeople: many(salesperson),
-}));
-
 export const redemptionRequestRelations = relations(redemptionRequest, ({one, many}) => ({
 	userMaster: one(userMaster, {
 		fields: [redemptionRequest.userId],
@@ -54,15 +63,6 @@ export const transactionRelations = relations(transaction, ({one}) => ({
 		fields: [transaction.userId],
 		references: [userMaster.userId]
 	}),
-}));
-
-export const distributorRelations = relations(distributor, ({one, many}) => ({
-	userMaster: one(userMaster, {
-		fields: [distributor.userId],
-		references: [userMaster.userId]
-	}),
-	retailers: many(retailer),
-	salespeople: many(salesperson),
 }));
 
 export const notificationLogRelations = relations(notificationLog, ({one}) => ({

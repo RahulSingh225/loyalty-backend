@@ -199,7 +199,7 @@ if (authUser.userType === 'retailer') {
         await tx
         .update(distributor)
         .set({
-          balancePoints: (Number(sourceUser.balancePoints) - pointsAllocated),
+          balancePoints: String(Number(sourceUser.balancePoints) - pointsAllocated),
         })
         .where(eq(distributor.userId, payload.sourceUserId));
 

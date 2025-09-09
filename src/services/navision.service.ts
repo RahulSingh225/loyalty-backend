@@ -1176,6 +1176,10 @@ private BATCH_SIZE = 50;
 // Generic function to call onboard_retailer procedure
 async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResult> {
   if (!this.validateOnboardData(data)) {
+     await db.insert(onboardingLogs).values({
+            refNo:data.navision_id || 'unknown',
+            result:{data:`Invalid data for navision_id ${data.navision_id || 'unknown'}`}
+           })
     return { success: false, error: `Invalid data for navision_id ${data.navision_id || 'unknown'}` };
   }
   try {
@@ -1289,7 +1293,7 @@ async processBatch<T>(
           whatsappNo = '';
         }
 
-        const enttry = await db.select().from(userMaster).where(eq(userMaster.mobileNumber,data.mobile_number))
+        const enttry = await db.select().from(userMaster).where(and(eq(userMaster.mobileNumber,data.mobile_number),eq(userMaster.userType,'retailer')))
         if(enttry.length){
           return null
         }
@@ -1729,7 +1733,7 @@ async test(){
       and(
         eq(salesPointLedgerEntry.documentType, 'Transfer'),
         eq(salesPointLedgerEntry.agentCode, d.navId),
-        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter),
         eq(salesPointLedgerEntry.customerIsAgent, false),
         ne(salesPointLedgerEntry.retailerNo, '')
       )
@@ -1745,7 +1749,7 @@ async test(){
       and(
         eq(salesPointLedgerEntry.documentType, 'Transfer'),
         eq(salesPointLedgerEntry.agentCode, d.navId),
-        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter),
         eq(salesPointLedgerEntry.customerIsAgent, false),
         ne(salesPointLedgerEntry.customerNo, ''),
         eq(salesPointLedgerEntry.retailerNo, ''),
@@ -1764,7 +1768,7 @@ async test(){
       and(
         eq(salesPointLedgerEntry.documentType, 'Transfer'),
         eq(salesPointLedgerEntry.agentCode, d.navId),
-        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter),
         eq(salesPointLedgerEntry.customerIsAgent, false),
         eq(salesPointLedgerEntry.customerNo, ''),
         eq(salesPointLedgerEntry.retailerNo, ''),
@@ -1789,7 +1793,7 @@ const subquery = db
     .where(
       and(
         eq(salesPointsClaimTransfer.agentCode, d.navId),
-        eq(salesPointsClaimTransfer.scheme, 'SCHEME 1'),
+        eq(salesPointsClaimTransfer.scheme, GlobalState.schemeFilter),
         eq(salesPointsClaimTransfer.entryType, 'Points Transfer'),
         eq(salesPointsClaimTransfer.status, 'Submitted'),
         eq(salesPointsClaimTransfer.lineType, 'Header')
@@ -1799,13 +1803,13 @@ const subquery = db
   // Main query: Sum sales_point where document_no is in subquery results
   const result = await db
     .select({
-      total_points: sql<number>`COALESCE(SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS INTEGER)), 0)`.as('total_points'),
+      total_points: sql<number>`COALESCE(SUM(CAST(${salesPointsClaimTransfer.salesPoint} AS NUMERIC)), 0)`.as('total_points'),
     })
     .from(salesPointsClaimTransfer)
     .where(
       and(
         eq(salesPointsClaimTransfer.agentCode, d.navId),
-        eq(salesPointsClaimTransfer.scheme, 'SCHEME 1'),
+        eq(salesPointsClaimTransfer.scheme, GlobalState.schemeFilter),
         eq(salesPointsClaimTransfer.entryType, 'Points Transfer'),
         eq(salesPointsClaimTransfer.status, 'Submitted'),
         inArray(salesPointsClaimTransfer.documentNo, subquery)
@@ -1824,7 +1828,7 @@ const subquery = db
     .where(
       and(
         eq(salesPointLedgerEntry.documentType, 'Invoice'),
-        eq(salesPointLedgerEntry.scheme, 'SCHEME 1'),
+        eq(salesPointLedgerEntry.scheme, GlobalState.schemeFilter),
         eq(salesPointLedgerEntry.agentCode, d.navId),
         eq(salesPointLedgerEntry.customerIsAgent, true)
       )
@@ -1835,7 +1839,7 @@ const subquery = db
 
   const total_available = total_agent - total_transferred - total_submitted
 console.log(d.navId,total_available)
-  await db.update(distributor).set({balancePoints:total_available}).where(eq(distributor.navisionId,d.navId))
+  await db.update(distributor).set({balancePoints:(total_available.toFixed(2))}).where(eq(distributor.navisionId,d.navId))
   await db.update(userMaster).set({balancePoints:String(total_available)}).where(eq(userMaster.userId,d.userId))
 
 }
@@ -2143,7 +2147,7 @@ async onboardSalesPerson(){
          const sales = await db.select().from(navisionSalespersonList).where(eq(navisionSalespersonList.onboarded,false))
     for await (let s of sales){
         await db.transaction(async (tx)=>{
-            const existingUser = await tx.select().from(userMaster).where(eq(userMaster.mobileNumber,s.whatsappMobileNumber)).limit(1);
+            const existingUser = await tx.select().from(userMaster).where(and(eq(userMaster.mobileNumber,s.whatsappMobileNumber),eq(userMaster.userType,'sales'))).limit(1);
             if (existingUser.length > 0) {
               await db.insert(onboardingLogs).values({
             refNo:s.code,
@@ -2152,7 +2156,7 @@ async onboardSalesPerson(){
                 console.log(`User with mobile number ${s.whatsappMobileNumber} already exists, skipping onboarding.`);
                 return; // Skip if user already exists
             }
-           const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).onConflictDoNothing({ target: userMaster.mobileNumber }).returning()
+           const entry =  await tx.insert(userMaster).values({mobileNumber:s.whatsappMobileNumber,userType:'sales',roleId:3,username:s.name}).returning()
            await db.insert(onboardingLogs).values({
             refNo:s.code,
             result:{data:`Onboarded user: ${entry} with mobile number ${s.whatsappMobileNumber}`}
