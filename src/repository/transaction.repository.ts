@@ -47,7 +47,7 @@ console.log(result.length)
         documentType: entry.documentType,
         entryType: Number(entry.salesPoints)>0?'CREDIT':'DEBIT',
         points: entry.salesPoints
-      }))
+      })).sort((a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime());
 
 
 

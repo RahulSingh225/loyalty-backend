@@ -1,4 +1,5 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import {alias} from "drizzle-orm/pg-core"
 import { distributor, navisionCustomerMaster, navisionNotifyCustomer, navisionRetailMaster, pointAllocationLog, retailer, salesperson, userMaster } from "../db/schema";
 import { db } from "../services/db.service";
 import { startOfDay } from "date-fns";
@@ -66,11 +67,24 @@ console.log(payload)
   }
 
   // Validate total points from details
-  const totalDetailPoints = payload.details.reduce((sum:any, detail:any) => {
-    return sum + (typeof detail?.multiplier == 'number' && !isNaN(detail.multiplier) &&
-                  typeof detail?.qty == 'number' && !isNaN(detail.qty)
-                  ? detail.multiplier * detail.qty : 0);
-  }, 0);
+interface Detail {
+  multiplier?: number;
+  qty?: number;
+  [key: string]: any; // For other properties in the detail object
+}
+
+const totalDetailPoints = payload.details.reduce((sum: number, detail: Detail) => {
+  if (
+    typeof detail?.multiplier === 'number' &&
+    !isNaN(detail.multiplier) &&
+    typeof detail?.qty === 'number' &&
+    !isNaN(detail.qty)
+  ) {
+    const product = detail.multiplier * detail.qty;
+    return sum + parseFloat(product.toFixed(2));
+  }
+  return sum;
+}, 0)
 
   if (pointsAllocated !== totalDetailPoints) {
     console.log('Payload details:', payload.details);
@@ -186,6 +200,8 @@ if (authUser.userType === 'retailer') {
     .leftJoin(navisionNotifyCustomer, eq(retailer.navisionId, navisionNotifyCustomer.no));
 
 
+    console.log(pointsAllocated);
+
   try {
     return await db.transaction(async (tx) => {
       // Update source user balance
@@ -193,6 +209,8 @@ if (authUser.userType === 'retailer') {
         .update(userMaster)
         .set({
           balancePoints: String(Number(sourceUser.balancePoints) - pointsAllocated),
+          redeemedPoints: String(Number(sourceUser.redeemedPoints) + pointsAllocated),
+
         })
         .where(eq(userMaster.userId, payload.sourceUserId));
 
@@ -200,6 +218,7 @@ if (authUser.userType === 'retailer') {
         .update(distributor)
         .set({
           balancePoints: String(Number(sourceUser.balancePoints) - pointsAllocated),
+          consumedPoints: String(Number(sourceUser.redeemedPoints) + pointsAllocated),
         })
         .where(eq(distributor.userId, payload.sourceUserId));
 
@@ -213,6 +232,7 @@ if (authUser.userType === 'retailer') {
         .set({
           balancePoints: String(Number(targetUser.balancePoints) + pointsAllocated),
           totalPoints: String(Number(targetUser.totalPoints) + pointsAllocated),
+          
         })
         .where(eq(userMaster.userId, payload.targetUserId));
 
@@ -328,10 +348,34 @@ const lineItems: ClaimPostPayload[]=[]
       return transferResult;
     });
   } catch (error) {
+    
     throw new Error(`Transfer failed: ${(error as Error).message}`);
   }
     // Assuming you have a pointsTransfer table to log transfers
     
+  }
+
+
+  async pointTransferHistory(authUser:any) {
+    const sourceUser = alias(userMaster,'sourceUser'); // Alias for source user
+const targetUser = alias(userMaster,'targetUser'); // Alias for target user
+
+   const result = await db
+  .select({
+    documentNo: pointAllocationLog.documentNo,
+    sourceUser: sourceUser.username,
+    targetUser: targetUser.username,
+    pointsAllocated: pointAllocationLog.pointsAllocated,
+    allocationDate: pointAllocationLog.allocationDate,
+    status: pointAllocationLog.status,
+    details: pointAllocationLog.details,
+  })
+  .from(pointAllocationLog)
+  .where(eq(pointAllocationLog.sourceUserId, authUser.userId))
+  .orderBy(desc(pointAllocationLog.allocationDate))
+  .leftJoin(sourceUser, eq(pointAllocationLog.sourceUserId, sourceUser.userId))
+  .leftJoin(targetUser, eq(pointAllocationLog.targetUserId, targetUser.userId));
+    return result;
   }
 }
 

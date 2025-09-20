@@ -937,6 +937,7 @@ async  bulkInsertSalesPointLedgerEntry(dataArray) {
           customerIsAgent: data['Customer_is_Agent'],
           quantity: data['Quantity'],
           itemGroup: data['Item_Group_Code'],
+          createdAt:data['Created_DateTime'] || sql`CURRENT_TIMESTAMP`,
           etag: data['ETag'],
         });
       }
@@ -952,7 +953,26 @@ async  bulkInsertSalesPointLedgerEntry(dataArray) {
     await db
       .insert(salesPointLedgerEntry)
       .values(validRecords)
-      .onConflictDoNothing({ target: salesPointLedgerEntry.entryNo });
+      .onConflictDoUpdate({ target: salesPointLedgerEntry.entryNo,set:{
+
+         documentType: sql`EXCLUDED.Document_Type`,
+          documentNo: sql`EXCLUDED.Document_No`,
+          customerNo: sql`EXCLUDED.Customer_No`,
+          customerName: sql`EXCLUDED.Customer_Name`,
+          notifyCustomerNo: sql`EXCLUDED.Notify_Customer_No`,
+          notifyCustomerName: sql`EXCLUDED.Notify_Customer_Name`,
+          agentCode: sql`EXCLUDED.Agent_Code`,
+          agentName: sql`EXCLUDED.Agent_Name`,
+          retailerNo: sql`EXCLUDED.Retailer_No`,
+          retailerName: sql`EXCLUDED.Retailer_Name`,
+          scheme: sql`EXCLUDED.Scheme`,
+          salesPoints: sql`EXCLUDED.Sales_Points`,
+          customerIsAgent: sql`EXCLUDED.Customer_is_Agent`,
+          quantity: sql`EXCLUDED.Quantity`,
+          itemGroup: sql`EXCLUDED.Item_Group_Code`,
+          createdAt:sql`EXCLUDED.Created_DateTime` || sql`CURRENT_TIMESTAMP`,
+          etag: sql`EXCLUDED.ETag`,
+      } });
 
     console.log(`Inserted ${validRecords.length} records into sales_point_ledger_entry`);
     if (skippedRecords.length > 0) {
@@ -1004,6 +1024,7 @@ async  bulkInsertSalesPointsClaimTransfer(dataArray) {
           qualityDesc: data['Quality_Desc'],
           multiplier: data['Multiplier'],
           etag: data['ETag'],
+          createdAt:data['Created_DateTime'] || sql`CURRENT_TIMESTAMP`,
           docLineNo: data['Document_No'] + '-' + data['Line_No'], // Unique identifier for conflict resolution
         });
       }
@@ -1019,7 +1040,30 @@ async  bulkInsertSalesPointsClaimTransfer(dataArray) {
     await db
       .insert(salesPointsClaimTransfer)
       .values(validRecords)
-      .onConflictDoNothing({ target: salesPointsClaimTransfer.docLineNo });
+      .onConflictDoUpdate({ target: salesPointsClaimTransfer.docLineNo,set:{
+         isMaster: sql`EXCLUDED.Is_Master`,
+          lineNo: sql`EXCLUDED.Line_No`,
+          entryType: sql`EXCLUDED.Entry_Type`,
+          lineType: sql`EXCLUDED.Line_Type`,
+          customerNo: sql`EXCLUDED.Customer_No`,
+          customerName: sql`EXCLUDED.Customer_Name`,
+          agentCode: sql`EXCLUDED.Agent_Code`,
+          agentName: sql`EXCLUDED.Agent_Name`,
+          retailerNo: sql`EXCLUDED.Retailer_No`,
+          retailerName: sql`EXCLUDED.retailer_Name`,
+          notifyCustomer: sql`EXCLUDED.Notify_Customer`,
+          notifyCustomerName: sql`EXCLUDED.Notify_Customer_Name`,
+          salesPersonCode: sql`EXCLUDED.Sales_Person_Code`,
+          customerPostingGroup: sql`EXCLUDED.Customer_Posting_Group`,
+          status: sql`EXCLUDED.Status`,
+          scheme: sql`EXCLUDED.Scheme`,
+          salesPoint: sql`EXCLUDED.Sales_Point`,
+          quantity: sql`EXCLUDED.Quantity`,
+          qualityDesc: sql`EXCLUDED.Quality_Desc`,
+          multiplier: sql`EXCLUDED.Multiplier`,
+          etag: sql`EXCLUDED.ETag`,
+          createdAt:sql`EXCLUDED.Created_DateTime` || sql`CURRENT_TIMESTAMP`
+      } });
 
     console.log(`Inserted ${validRecords.length} records into sales_points_claim_transfer`);
     if (skippedRecords.length > 0) {
@@ -1212,7 +1256,7 @@ async  callProcedure(client: PoolClient, data: OnboardData): Promise<OnboardResu
           data.state,
           'retailer',
           data.navision_id,
-          data.home_address
+          '',
         ])
       }else{
  result = await client.query<{ result: OnboardResult }>(
@@ -1353,8 +1397,8 @@ async  onboardAllRetailer() {
       secondary_mobile_number: c.whatsappNo2?.trim().length?c.whatsappNo2.trim():null,
       password: 'default@123',
       shop_name: c.name,
-      shop_address: c.address,
-      home_address: c.address2,
+      shop_address: `${c.address},${c.address2}`,
+      home_address: '',
       work_address: null,
       pan_id: c.pANNo,
       aadhar_id: null,
@@ -1374,8 +1418,8 @@ async  onboardAllRetailer() {
       secondary_mobile_number: n.whatsappNo2?.trim().length?n.whatsappNo2.trim():null,
       password: 'default@123',
       shop_name: n.name ?? '',
-      shop_address: n.address,
-      home_address: n.address2,
+      shop_address: `${n.address},${n.address2}`,
+      home_address: '',
       work_address: null,
       pan_id: n.pANNo,
       aadhar_id: null,
@@ -1395,8 +1439,8 @@ async  onboardAllRetailer() {
       secondary_mobile_number: r.whatsappNo2?.trim().length?r.whatsappNo2.trim():null,
       password: 'default@123',
       shop_name: r.shopName ?? '',
-      shop_address: r.shopAddress,
-      home_address: r.address2,
+      shop_address: `${r.shopAddress},${r.address2}`,
+      home_address: '',
       work_address: null,
       pan_id: r.pANNo,
       aadhar_id: r.aadhaarNo,

@@ -11,6 +11,16 @@ class EarningController {
     }
   }
 
+  async getTransferHistory(req:any, res: Response) {
+    try {
+      const userId = req.user.userId;
+      const result = await earningRepository.pointTransferHistory(req.user);
+      return res.status(200).json({success:true,data:result});
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({success:false,message:error.message});
+    }
+  }
   // async getEarnings(req, res: Response) {
   //   try {
   //     const userId = req.user.userId;
