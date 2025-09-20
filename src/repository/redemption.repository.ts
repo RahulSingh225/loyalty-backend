@@ -12,6 +12,7 @@ import { startOfDay } from "date-fns";
 interface RedemptionPayload {
   userId: number;
   address: string;
+  addressType:string;
   rewards: { amount: number; giftId: string; quantity: number }[];
 }
 
@@ -138,7 +139,9 @@ console.log(retailerDetails)
         throw new Error('Invalid input: Missing required fields');
       }
 
- 
+      if(payload.addressType=='Home'){
+        await tx.update(retailer).set({homeAddress:payload.address}).where(eq(retailer.userId,payload.userId))
+      }
     
 
       // Insert header

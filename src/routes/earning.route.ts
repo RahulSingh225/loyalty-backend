@@ -12,6 +12,12 @@ import { authMiddleware } from "../middleware/auth.middleware";
   earningController.initiateEarning.bind(earningController)
 );
 
+ earningRouter.get(
+  "/pointsTransfer",
+  authMiddleware.verifyJWT,
+  earningController.getTransferHistory.bind(earningController)
+);
+
 // const earningRoutes = [
 //   {
 //     method: "post",

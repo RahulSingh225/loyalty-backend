@@ -145,8 +145,8 @@ class App {
   //     await navisionService.syncRetail();
   //     await navisionService.syncNotifyCustomer();
   //     await navisionService.syncSalesPersonList();
-  //     await navisionService.syncSalesLedger();
-       //await navisionService.syncSalesClaimTransfer();
+      await navisionService.syncSalesLedger();
+       await navisionService.syncSalesClaimTransfer();
       // await navisionService.onboardAllRetailer();
       //  await navisionService.onboardDistributors();
        await navisionService.onboardSalesPerson();
