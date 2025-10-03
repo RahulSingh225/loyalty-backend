@@ -420,7 +420,7 @@ case 'distributor':
             .from(distributor)
             .leftJoin(navisionCustomerMaster, eq(distributor.navisionId, navisionCustomerMaster.salesAgent))
             .leftJoin(navisionRetailMaster, eq(distributor.navisionId, navisionRetailMaster.agentCode))
-            .innerJoin(salesperson, or(
+            .leftJoin(salesperson, or(
                 eq(navisionCustomerMaster.salespersonCode, salesperson.navisionId),
                 eq(navisionRetailMaster.salesPersonCode, salesperson.navisionId)
             ))
@@ -429,7 +429,8 @@ case 'distributor':
                 or(
                     eq(distributor.navisionId, navisionCustomerMaster.salesAgent),
                     eq(distributor.navisionId, navisionRetailMaster.agentCode)
-                )
+                ),
+                eq(distributor.distributorId,param.distributorId)
             ))
             .limit(1);
 
@@ -500,8 +501,8 @@ case 'distributor':
         })
         .from(userMaster)
         .innerJoin(distributor, eq(userMaster.userId, distributor.userId))
-        .innerJoin(navisionCustomerMaster, eq(distributor.navisionId, navisionCustomerMaster.salesAgent))
-        .innerJoin(navisionRetailMaster, eq(distributor.navisionId, navisionRetailMaster.agentCode))
+        .leftJoin(navisionCustomerMaster, eq(distributor.navisionId, navisionCustomerMaster.salesAgent))
+        .leftJoin(navisionRetailMaster, eq(distributor.navisionId, navisionRetailMaster.agentCode))
         .where(and(
             eq(userMaster.userType, 'distributor'),
             or(
